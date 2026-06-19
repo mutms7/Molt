@@ -10,7 +10,42 @@ export const state = { locked: false }
 const SENS = 0.0022
 let el: HTMLElement | null = null
 
+export function clearInput() {
+  keys.f = keys.b = keys.l = keys.r = 0
+  edges.jump = false
+  edges.dash = false
+}
+
 function kd(e: KeyboardEvent) {
+  const game = useGame.getState()
+  switch (e.code) {
+    case 'Escape':
+    case 'KeyP':
+      if (game.screen === 'play') {
+        clearInput()
+        if (!game.paused && document.pointerLockElement) document.exitPointerLock()
+        game.togglePaused()
+        e.preventDefault()
+      }
+      return
+    case 'KeyR':
+      if (game.screen === 'play') {
+        clearInput()
+        game.restartZone()
+        e.preventDefault()
+      }
+      return
+    case 'KeyM':
+      if (game.screen === 'play') {
+        clearInput()
+        if (document.pointerLockElement) document.exitPointerLock()
+        game.toMenu()
+        e.preventDefault()
+      }
+      return
+  }
+  if (game.paused) return
+
   switch (e.code) {
     case 'KeyW': case 'ArrowUp': keys.f = 1; break
     case 'KeyS': case 'ArrowDown': keys.b = 1; break
@@ -60,8 +95,7 @@ export function initControls(canvas: HTMLElement) {
   el = canvas
   look.yaw = 0
   look.pitch = 0.06
-  keys.f = keys.b = keys.l = keys.r = 0
-  edges.jump = edges.dash = false
+  clearInput()
   window.addEventListener('keydown', kd)
   window.addEventListener('keyup', ku)
   window.addEventListener('mousemove', mm)
@@ -78,4 +112,5 @@ export function disposeControls() {
   if (document.pointerLockElement) document.exitPointerLock()
   el = null
   state.locked = false
+  clearInput()
 }

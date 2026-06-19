@@ -86,7 +86,9 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     const cc = ctrl.current
     if (!b || !col || !cc) return
     const dt = Math.min(dtRaw, 0.033)
-    const suited = useGame.getState().suited
+    const game = useGame.getState()
+    if (game.paused) return
+    const suited = game.suited
     const P = suited ? SUIT : BARE
     const st = s.current
 

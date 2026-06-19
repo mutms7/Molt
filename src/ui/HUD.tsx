@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useGame } from '../game/store'
+import { clearInput } from '../game/input'
 
 export function HUD() {
   const suited = useGame((s) => s.suited)
   const moments = useGame((s) => s.moments)
   const total = useGame((s) => s.totalMoments)
   const exposure = useGame((s) => s.exposure)
-  const toMenu = useGame((s) => s.toMenu)
+  const setPaused = useGame((s) => s.setPaused)
   const [locked, setLocked] = useState(false)
 
   useEffect(() => {
@@ -38,8 +39,15 @@ export function HUD() {
       </div>
 
       <div className="tr">
-        <button className="btn ghost small" onClick={toMenu}>
-          Map
+        <button
+          className="btn ghost small"
+          onClick={() => {
+            clearInput()
+            if (document.pointerLockElement) document.exitPointerLock()
+            setPaused(true)
+          }}
+        >
+          Pause
         </button>
       </div>
 
@@ -60,6 +68,12 @@ export function HUD() {
           <b>
             <kbd>Q</kbd> molt
           </b>
+        </span>
+        <span>
+          <kbd>Esc</kbd> pause
+        </span>
+        <span>
+          <kbd>R</kbd> restart
         </span>
         <span>mouse to look</span>
       </div>
