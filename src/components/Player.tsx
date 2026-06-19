@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useEffect, useRef, type RefObject } from 'react'
+import { useFrame } from '@react-three/fiber'
 import {
   RigidBody,
   CapsuleCollider,
@@ -25,6 +25,7 @@ const GROUND_STICK = -4 // gentle downward press so you hug the ground / step do
 const CAM_DIST = 6.4
 const CAP_HALF = 0.5
 const CAP_RADIUS = 0.4
+const LAND_TIME = 0.18
 
 function dampAngle(current: number, target: number, lambda: number, dt: number) {
   const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current))
@@ -35,10 +36,27 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
   const body = useRef<RapierRigidBody>(null)
   const colRef = useRef<RapierCollider>(null)
   const visual = useRef<THREE.Group>(null)
+  const rig = useRef<THREE.Group>(null)
+  const squash = useRef<THREE.Group>(null)
+  const bareLook = useRef<THREE.Group>(null)
+  const suitLook = useRef<THREE.Group>(null)
+  const bareHead = useRef<THREE.Group>(null)
+  const bareTorso = useRef<THREE.Group>(null)
+  const bareArmL = useRef<THREE.Group>(null)
+  const bareArmR = useRef<THREE.Group>(null)
+  const bareLegL = useRef<THREE.Group>(null)
+  const bareLegR = useRef<THREE.Group>(null)
+  const suitHead = useRef<THREE.Group>(null)
+  const suitTorso = useRef<THREE.Group>(null)
+  const suitArmL = useRef<THREE.Group>(null)
+  const suitArmR = useRef<THREE.Group>(null)
+  const suitLegL = useRef<THREE.Group>(null)
+  const suitLegR = useRef<THREE.Group>(null)
+  const suitPack = useRef<THREE.Group>(null)
+  const suitPanel = useRef<THREE.Mesh>(null)
   const shell = useRef<THREE.Mesh>(null)
   const ctrl = useRef<ReturnType<typeof createCtrl> | null>(null)
   const { rapier, world } = useRapier()
-  const camera = useThree((s) => s.camera)
 
   const s = useRef({
     vy: 0,
@@ -49,6 +67,11 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     dashCd: 0,
     camInit: false,
     cpDone: false,
+    runPhase: 0,
+    runBlend: 0,
+    landTimer: 0,
+    wasGrounded: false,
+    victoryTime: 0,
   })
   const v = useRef({
     fwd: new THREE.Vector3(),
@@ -59,6 +82,66 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     camTarget: new THREE.Vector3(),
     camPos: new THREE.Vector3(),
   }).current
+
+  function poseLimb(ref: RefObject<THREE.Group | null>, x: number, y = 0, z = 0) {
+    if (ref.current) ref.current.rotation.set(x, y, z)
+  }
+
+  function animateRig(dt: number, suited: boolean, moving: boolean, grounded: boolean, vy: number, speed: number, complete: boolean) {
+    const st = s.current
+    const time = performance.now() * 0.001
+    const runTarget = moving && grounded && !complete ? THREE.MathUtils.clamp(speed / SUIT.speed, 0, 1) : 0
+    st.runBlend = THREE.MathUtils.damp(st.runBlend, runTarget, 14, dt)
+    st.runPhase += (3.5 + speed * 1.25) * st.runBlend * dt
+    st.landTimer = Math.max(0, st.landTimer - dt)
+    st.victoryTime = complete ? st.victoryTime + dt : 0
+
+    const stride = Math.sin(st.runPhase)
+    const stride2 = Math.sin(st.runPhase + Math.PI)
+    const idle = Math.sin(time * 2.4)
+    const land = st.landTimer / LAND_TIME
+    const airborne = !grounded && !complete
+    const rising = airborne && vy > 0
+    const victory = complete ? 1 : 0
+
+    if (bareLook.current) bareLook.current.visible = !suited
+    if (suitLook.current) suitLook.current.visible = suited
+
+    if (rig.current) {
+      rig.current.position.y = (grounded ? idle * 0.018 * (1 - st.runBlend) : 0) - land * 0.05
+      rig.current.rotation.y = victory ? Math.sin(st.victoryTime * 5.5) * 0.55 : 0
+      rig.current.rotation.z = victory ? Math.sin(st.victoryTime * 8) * 0.08 : 0
+    }
+    if (squash.current) {
+      const jumpStretch = airborne && rising ? 0.06 : 0
+      squash.current.scale.set(1 + land * 0.12 - jumpStretch * 0.35, 1 - land * 0.18 + jumpStretch, 1 + land * 0.12 - jumpStretch * 0.35)
+    }
+
+    const armAir = airborne ? (rising ? -0.8 : 0.45) : 0
+    const legAir = airborne ? (rising ? -0.35 : 0.55) : 0
+    const victoryArm = victory ? -2.45 + Math.sin(st.victoryTime * 10) * 0.15 : 0
+    const victoryLeg = victory ? 0.18 + Math.sin(st.victoryTime * 12) * 0.08 : 0
+    const runArm = st.runBlend * 0.9
+    const runLeg = st.runBlend * 0.7
+
+    poseLimb(bareArmL, stride2 * runArm + armAir + victoryArm, 0, -0.12 - victory * 0.35)
+    poseLimb(bareArmR, stride * runArm + armAir + victoryArm, 0, 0.12 + victory * 0.35)
+    poseLimb(bareLegL, stride * runLeg + legAir + victoryLeg, 0, 0.05)
+    poseLimb(bareLegR, stride2 * runLeg + legAir + victoryLeg, 0, -0.05)
+
+    poseLimb(suitArmL, stride2 * runArm * 0.72 + armAir * 0.75 + victoryArm, 0, -0.2 - victory * 0.45)
+    poseLimb(suitArmR, stride * runArm * 0.72 + armAir * 0.75 + victoryArm, 0, 0.2 + victory * 0.45)
+    poseLimb(suitLegL, stride * runLeg * 0.55 + legAir * 0.55 + victoryLeg, 0, 0.04)
+    poseLimb(suitLegR, stride2 * runLeg * 0.55 + legAir * 0.55 + victoryLeg, 0, -0.04)
+
+    if (bareHead.current) bareHead.current.position.y = 0.83 + idle * 0.012 * (1 - st.runBlend)
+    if (bareTorso.current) bareTorso.current.rotation.x = airborne ? (rising ? -0.08 : 0.16) : stride * st.runBlend * 0.03
+    if (suitHead.current) suitHead.current.position.y = 0.86 + idle * 0.008 * (1 - st.runBlend)
+    if (suitTorso.current) suitTorso.current.rotation.x = airborne ? (rising ? -0.05 : 0.12) : stride * st.runBlend * 0.02
+    if (suitPack.current) suitPack.current.position.z = -0.39 + Math.sin(time * 3.2) * 0.012
+    if (suitPanel.current) suitPanel.current.scale.setScalar(1 + Math.sin(time * 7) * 0.04)
+    if (shell.current) shell.current.scale.setScalar(1 + Math.sin(time * 3) * 0.018 + victory * 0.04)
+  }
 
   function createCtrl() {
     const cc = world.createCharacterController(0.02)
@@ -80,7 +163,7 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [world])
 
-  useFrame((_, dtRaw) => {
+  useFrame((frame, dtRaw) => {
     const b = body.current
     const col = colRef.current
     const cc = ctrl.current
@@ -88,6 +171,8 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     const dt = Math.min(dtRaw, 0.033)
     const game = useGame.getState()
     if (game.paused) return
+    const acceptingInput = game.screen === 'play'
+    const complete = game.screen === 'complete'
     const suited = game.suited
     const P = suited ? SUIT : BARE
     const st = s.current
@@ -116,8 +201,8 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     const yaw = look.yaw, pitch = look.pitch
     v.fwd.set(Math.sin(yaw), 0, -Math.cos(yaw))
     v.right.set(Math.cos(yaw), 0, Math.sin(yaw))
-    const mz = keys.f - keys.b
-    const mx = keys.r - keys.l
+    const mz = acceptingInput ? keys.f - keys.b : 0
+    const mx = acceptingInput ? keys.r - keys.l : 0
     v.move.set(0, 0, 0).addScaledVector(v.fwd, mz).addScaledVector(v.right, mx)
     const moving = v.move.lengthSq() > 1e-4
     if (moving) v.move.normalize()
@@ -134,7 +219,7 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     }
 
     // --- dash (suited only); horizontal burst, vertical untouched ---
-    if (edges.dash) {
+    if (acceptingInput && edges.dash) {
       edges.dash = false
       if (suited && st.dashCd <= 0) {
         st.dashTimer = DASH_TIME
@@ -156,7 +241,7 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     // --- vertical velocity (gravity + jump), resolved independently of X/Z ---
     st.vy += GRAVITY * dt
     if (grounded && st.vy < 0) st.vy = GROUND_STICK
-    if (edges.jump) {
+    if (acceptingInput && edges.jump) {
       edges.jump = false
       if (grounded || st.coyote > 0) {
         st.vy = P.jump
@@ -183,6 +268,9 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     const blockedDown = st.vy < 0 && vertical.applied.y > desiredY + 1e-4
     const newGrounded = vertical.grounded || blockedDown
 
+    if (!st.wasGrounded && newGrounded) st.landTimer = LAND_TIME
+    st.wasGrounded = newGrounded
+
     // Ceiling: rising but vertical movement got blocked -> stop rising.
     if (st.vy > 0 && vertical.applied.y < desiredY - 1e-4) st.vy = 0
     // Landed.
@@ -208,7 +296,7 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
 
     setPosition(nx, ny, nz)
 
-    // --- visual facing + shell ---
+    // --- visual facing + character animation ---
     if (visual.current) {
       const face = st.dashTimer > 0 ? v.dashDir : moving ? v.move : null
       if (face) {
@@ -216,10 +304,7 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
         visual.current.rotation.y = dampAngle(visual.current.rotation.y, ang, 14, dt)
       }
     }
-    if (shell.current) {
-      shell.current.visible = suited
-      shell.current.scale.setScalar(1 + Math.sin(performance.now() * 0.003) * 0.015)
-    }
+    animateRig(dt, suited, moving, newGrounded, st.vy, Math.hypot(hx, hz), complete)
 
     // --- third-person camera ---
     v.lookDir.set(
@@ -229,6 +314,7 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     )
     v.camTarget.set(nx, ny + 1.2, nz)
     v.camPos.copy(v.camTarget).addScaledVector(v.lookDir, -CAM_DIST)
+    const camera = frame.camera
     if (!st.camInit) {
       camera.position.copy(v.camPos)
       st.camInit = true
@@ -250,31 +336,170 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     >
       <CapsuleCollider ref={colRef} args={[CAP_HALF, CAP_RADIUS]} />
       <group ref={visual}>
-        <mesh castShadow position={[0, 0.75, 0]}>
-          <sphereGeometry args={[0.28, 20, 20]} />
-          <meshStandardMaterial color="#f2d4bf" roughness={0.75} />
-        </mesh>
-        <mesh castShadow position={[0, 0.05, 0]}>
-          <capsuleGeometry args={[0.32, 0.62, 8, 16]} />
-          <meshStandardMaterial color="#3b4a63" roughness={0.85} />
-        </mesh>
-        <mesh position={[0, 0.18, 0.33]}>
-          <boxGeometry args={[0.3, 0.3, 0.08]} />
-          <meshStandardMaterial color="#F5B68C" emissive="#F5B68C" emissiveIntensity={0.45} roughness={0.4} />
-        </mesh>
-        <mesh ref={shell} position={[0, 0.12, 0]}>
-          <capsuleGeometry args={[0.56, 0.95, 8, 16]} />
-          <meshStandardMaterial
-            color="#A8E6CF"
-            emissive="#A8E6CF"
-            emissiveIntensity={0.3}
-            transparent
-            opacity={0.26}
-            roughness={0.1}
-            metalness={0}
-            depthWrite={false}
-          />
-        </mesh>
+        <group ref={rig}>
+          <group ref={squash}>
+            <group ref={bareLook} visible={false}>
+              <group ref={bareTorso} position={[0, 0.12, 0]}>
+                <mesh castShadow>
+                  <capsuleGeometry args={[0.25, 0.58, 8, 18]} />
+                  <meshStandardMaterial color="#f5b68c" roughness={0.78} />
+                </mesh>
+                <mesh position={[0, 0.03, 0.27]}>
+                  <boxGeometry args={[0.22, 0.2, 0.05]} />
+                  <meshStandardMaterial color="#ffd7b5" emissive="#f5b68c" emissiveIntensity={0.25} roughness={0.65} />
+                </mesh>
+              </group>
+              <group ref={bareHead} position={[0, 0.83, 0]}>
+                <mesh castShadow>
+                  <sphereGeometry args={[0.24, 20, 20]} />
+                  <meshStandardMaterial color="#f2d4bf" roughness={0.72} />
+                </mesh>
+                <mesh position={[0, 0.12, -0.02]} scale={[1.02, 0.48, 1.02]}>
+                  <sphereGeometry args={[0.245, 18, 18]} />
+                  <meshStandardMaterial color="#4b332d" roughness={0.9} />
+                </mesh>
+                <mesh position={[0, 0.01, 0.22]}>
+                  <boxGeometry args={[0.18, 0.045, 0.03]} />
+                  <meshStandardMaterial color="#2b2e36" roughness={0.5} />
+                </mesh>
+              </group>
+              <group ref={bareArmL} position={[-0.31, 0.35, 0]}>
+                <mesh castShadow position={[0, -0.21, 0]}>
+                  <capsuleGeometry args={[0.07, 0.34, 6, 10]} />
+                  <meshStandardMaterial color="#f2d4bf" roughness={0.82} />
+                </mesh>
+                <mesh castShadow position={[0, -0.45, 0]}>
+                  <sphereGeometry args={[0.075, 10, 10]} />
+                  <meshStandardMaterial color="#f2d4bf" roughness={0.82} />
+                </mesh>
+              </group>
+              <group ref={bareArmR} position={[0.31, 0.35, 0]}>
+                <mesh castShadow position={[0, -0.21, 0]}>
+                  <capsuleGeometry args={[0.07, 0.34, 6, 10]} />
+                  <meshStandardMaterial color="#f2d4bf" roughness={0.82} />
+                </mesh>
+                <mesh castShadow position={[0, -0.45, 0]}>
+                  <sphereGeometry args={[0.075, 10, 10]} />
+                  <meshStandardMaterial color="#f2d4bf" roughness={0.82} />
+                </mesh>
+              </group>
+              <group ref={bareLegL} position={[-0.13, -0.32, 0]}>
+                <mesh castShadow position={[0, -0.24, 0]}>
+                  <capsuleGeometry args={[0.085, 0.4, 6, 10]} />
+                  <meshStandardMaterial color="#374459" roughness={0.86} />
+                </mesh>
+                <mesh castShadow position={[0, -0.51, 0.07]}>
+                  <boxGeometry args={[0.17, 0.09, 0.28]} />
+                  <meshStandardMaterial color="#2b2e36" roughness={0.82} />
+                </mesh>
+              </group>
+              <group ref={bareLegR} position={[0.13, -0.32, 0]}>
+                <mesh castShadow position={[0, -0.24, 0]}>
+                  <capsuleGeometry args={[0.085, 0.4, 6, 10]} />
+                  <meshStandardMaterial color="#374459" roughness={0.86} />
+                </mesh>
+                <mesh castShadow position={[0, -0.51, 0.07]}>
+                  <boxGeometry args={[0.17, 0.09, 0.28]} />
+                  <meshStandardMaterial color="#2b2e36" roughness={0.82} />
+                </mesh>
+              </group>
+            </group>
+
+            <group ref={suitLook}>
+              <group ref={suitTorso} position={[0, 0.13, 0]}>
+                <mesh castShadow>
+                  <capsuleGeometry args={[0.36, 0.78, 8, 20]} />
+                  <meshStandardMaterial color="#3d5366" roughness={0.58} metalness={0.08} />
+                </mesh>
+                <mesh ref={suitPanel} position={[0, 0.1, 0.35]}>
+                  <boxGeometry args={[0.34, 0.3, 0.07]} />
+                  <meshStandardMaterial color="#a8e6cf" emissive="#6fcfae" emissiveIntensity={0.7} roughness={0.28} />
+                </mesh>
+                <mesh position={[-0.43, 0.2, 0]} castShadow>
+                  <boxGeometry args={[0.25, 0.2, 0.34]} />
+                  <meshStandardMaterial color="#5f8791" roughness={0.5} />
+                </mesh>
+                <mesh position={[0.43, 0.2, 0]} castShadow>
+                  <boxGeometry args={[0.25, 0.2, 0.34]} />
+                  <meshStandardMaterial color="#5f8791" roughness={0.5} />
+                </mesh>
+              </group>
+              <group ref={suitHead} position={[0, 0.86, 0]}>
+                <mesh castShadow>
+                  <sphereGeometry args={[0.31, 24, 24]} />
+                  <meshStandardMaterial color="#6f8f9b" roughness={0.38} metalness={0.12} />
+                </mesh>
+                <mesh position={[0, 0, 0.24]} scale={[1, 0.58, 0.22]}>
+                  <sphereGeometry args={[0.23, 18, 18]} />
+                  <meshStandardMaterial color="#1f2d3a" emissive="#a8e6cf" emissiveIntensity={0.12} roughness={0.2} />
+                </mesh>
+              </group>
+              <group ref={suitArmL} position={[-0.48, 0.32, 0]}>
+                <mesh castShadow position={[0, -0.21, 0]}>
+                  <capsuleGeometry args={[0.105, 0.34, 6, 12]} />
+                  <meshStandardMaterial color="#4f6f82" roughness={0.55} metalness={0.08} />
+                </mesh>
+                <mesh castShadow position={[0, -0.45, 0]}>
+                  <sphereGeometry args={[0.11, 12, 12]} />
+                  <meshStandardMaterial color="#a8e6cf" roughness={0.42} metalness={0.06} />
+                </mesh>
+              </group>
+              <group ref={suitArmR} position={[0.48, 0.32, 0]}>
+                <mesh castShadow position={[0, -0.21, 0]}>
+                  <capsuleGeometry args={[0.105, 0.34, 6, 12]} />
+                  <meshStandardMaterial color="#4f6f82" roughness={0.55} metalness={0.08} />
+                </mesh>
+                <mesh castShadow position={[0, -0.45, 0]}>
+                  <sphereGeometry args={[0.11, 12, 12]} />
+                  <meshStandardMaterial color="#a8e6cf" roughness={0.42} metalness={0.06} />
+                </mesh>
+              </group>
+              <group ref={suitLegL} position={[-0.17, -0.34, 0]}>
+                <mesh castShadow position={[0, -0.24, 0]}>
+                  <capsuleGeometry args={[0.12, 0.42, 6, 12]} />
+                  <meshStandardMaterial color="#34495a" roughness={0.62} metalness={0.08} />
+                </mesh>
+                <mesh castShadow position={[0, -0.53, 0.09]}>
+                  <boxGeometry args={[0.22, 0.12, 0.34]} />
+                  <meshStandardMaterial color="#223240" roughness={0.5} />
+                </mesh>
+              </group>
+              <group ref={suitLegR} position={[0.17, -0.34, 0]}>
+                <mesh castShadow position={[0, -0.24, 0]}>
+                  <capsuleGeometry args={[0.12, 0.42, 6, 12]} />
+                  <meshStandardMaterial color="#34495a" roughness={0.62} metalness={0.08} />
+                </mesh>
+                <mesh castShadow position={[0, -0.53, 0.09]}>
+                  <boxGeometry args={[0.22, 0.12, 0.34]} />
+                  <meshStandardMaterial color="#223240" roughness={0.5} />
+                </mesh>
+              </group>
+              <group ref={suitPack} position={[0, 0.14, -0.39]}>
+                <mesh castShadow>
+                  <boxGeometry args={[0.46, 0.72, 0.18]} />
+                  <meshStandardMaterial color="#263746" roughness={0.48} metalness={0.12} />
+                </mesh>
+                <mesh position={[0, 0.16, -0.1]}>
+                  <boxGeometry args={[0.28, 0.12, 0.08]} />
+                  <meshStandardMaterial color="#a8e6cf" emissive="#6fcfae" emissiveIntensity={0.45} roughness={0.35} />
+                </mesh>
+              </group>
+              <mesh ref={shell} position={[0, 0.16, 0]}>
+                <capsuleGeometry args={[0.55, 0.98, 8, 18]} />
+                <meshStandardMaterial
+                  color="#a8e6cf"
+                  emissive="#a8e6cf"
+                  emissiveIntensity={0.25}
+                  transparent
+                  opacity={0.18}
+                  roughness={0.1}
+                  metalness={0}
+                  depthWrite={false}
+                />
+              </mesh>
+            </group>
+          </group>
+        </group>
       </group>
     </RigidBody>
   )

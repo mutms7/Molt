@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useGame } from './game/store'
 import { Game } from './components/Game'
 import { TitleScreen } from './ui/TitleScreen'
@@ -6,6 +7,8 @@ import { HUD } from './ui/HUD'
 import { CompleteScreen } from './ui/CompleteScreen'
 import { PauseMenu } from './ui/PauseMenu'
 
+const StableGame = memo(Game)
+
 export default function App() {
   const screen = useGame((s) => s.screen)
   const runId = useGame((s) => s.runId)
@@ -13,7 +16,7 @@ export default function App() {
 
   return (
     <>
-      {inGame && <Game key={runId} />}
+      {inGame && <StableGame key={runId} />}
       {screen === 'title' && <TitleScreen />}
       {screen === 'select' && <LevelSelect />}
       {screen === 'play' && <HUD />}
