@@ -5,3 +5,16 @@ import * as THREE from 'three'
 export const fx = { bare: 0 } // 0 = fully suited, 1 = fully bare (smoothed)
 export const playerPos = new THREE.Vector3(0, 2, 8)
 export const checkpoint = new THREE.Vector3(0, 1.4, 8)
+export const debugTeleport = { next: null as THREE.Vector3 | null }
+
+// Dev-only debug hook for the headless physics tests (stripped from prod builds).
+if (import.meta.env.DEV) {
+  const debug = {
+    pos: playerPos,
+    teleport: (x: number, y: number, z: number) => {
+      debugTeleport.next = new THREE.Vector3(x, y, z)
+    },
+  }
+  ;(globalThis as unknown as { __moltPos: THREE.Vector3 }).__moltPos = playerPos
+  ;(globalThis as unknown as { __moltDebug: typeof debug }).__moltDebug = debug
+}
