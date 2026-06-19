@@ -26,6 +26,7 @@ const CAM_DIST = 6.4
 const CAP_HALF = 0.5
 const CAP_RADIUS = 0.4
 const LAND_TIME = 0.18
+const SUIT_TRANSITION_SPEED = 2.4
 
 function dampAngle(current: number, target: number, lambda: number, dt: number) {
   const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current))
@@ -87,7 +88,26 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     if (ref.current) ref.current.rotation.set(x, y, z)
   }
 
-  function animateRig(dt: number, suited: boolean, moving: boolean, grounded: boolean, vy: number, speed: number, complete: boolean) {
+  function setLookOpacity(group: THREE.Group | null, opacity: number) {
+    if (!group) return
+    group.traverse((obj) => {
+      const mesh = obj as THREE.Mesh
+      const material = mesh.material as THREE.Material | THREE.Material[] | undefined
+      const materials = Array.isArray(material) ? material : material ? [material] : []
+      materials.forEach((mat) => {
+        const faded = mat as THREE.Material & { opacity: number; transparent: boolean; depthWrite: boolean; userData: { baseOpacity?: number; baseDepthWrite?: boolean } }
+        if (faded.userData.baseOpacity === undefined) {
+          faded.userData.baseOpacity = faded.opacity
+          faded.userData.baseDepthWrite = faded.depthWrite
+        }
+        faded.opacity = faded.userData.baseOpacity * opacity
+        faded.transparent = faded.opacity < 0.999 || faded.userData.baseOpacity < 0.999
+        faded.depthWrite = faded.opacity >= 0.999 ? (faded.userData.baseDepthWrite ?? true) : false
+      })
+    })
+  }
+
+  function animateRig(dt: number, suitProgress: number, moving: boolean, grounded: boolean, vy: number, speed: number, complete: boolean) {
     const st = s.current
     const time = performance.now() * 0.001
     const runTarget = moving && grounded && !complete ? THREE.MathUtils.clamp(speed / SUIT.speed, 0, 1) : 0
@@ -103,9 +123,22 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     const airborne = !grounded && !complete
     const rising = airborne && vy > 0
     const victory = complete ? 1 : 0
+    const suitAlpha = THREE.MathUtils.smoothstep(suitProgress, 0.08, 0.95)
+    const bareAlpha = 1 - THREE.MathUtils.smoothstep(suitProgress, 0.05, 0.88)
 
-    if (bareLook.current) bareLook.current.visible = !suited
-    if (suitLook.current) suitLook.current.visible = suited
+    if (bareLook.current) {
+      bareLook.current.visible = bareAlpha > 0.02
+      bareLook.current.scale.setScalar(1 - suitAlpha * 0.08)
+      bareLook.current.position.y = -suitAlpha * 0.04
+      setLookOpacity(bareLook.current, bareAlpha)
+    }
+    if (suitLook.current) {
+      suitLook.current.visible = suitAlpha > 0.02
+      suitLook.current.scale.setScalar(0.72 + suitAlpha * 0.28)
+      suitLook.current.position.y = (1 - suitAlpha) * 0.1
+      suitLook.current.rotation.z = (1 - suitAlpha) * Math.sin(time * 14) * 0.08
+      setLookOpacity(suitLook.current, suitAlpha)
+    }
 
     if (rig.current) {
       rig.current.position.y = (grounded ? idle * 0.018 * (1 - st.runBlend) : 0) - land * 0.05
@@ -138,9 +171,9 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     if (bareTorso.current) bareTorso.current.rotation.x = airborne ? (rising ? -0.08 : 0.16) : stride * st.runBlend * 0.03
     if (suitHead.current) suitHead.current.position.y = 0.86 + idle * 0.008 * (1 - st.runBlend)
     if (suitTorso.current) suitTorso.current.rotation.x = airborne ? (rising ? -0.05 : 0.12) : stride * st.runBlend * 0.02
-    if (suitPack.current) suitPack.current.position.z = -0.39 + Math.sin(time * 3.2) * 0.012
-    if (suitPanel.current) suitPanel.current.scale.setScalar(1 + Math.sin(time * 7) * 0.04)
-    if (shell.current) shell.current.scale.setScalar(1 + Math.sin(time * 3) * 0.018 + victory * 0.04)
+    if (suitPack.current) suitPack.current.position.z = -0.39 - (1 - suitAlpha) * 0.22 + Math.sin(time * 3.2) * 0.012
+    if (suitPanel.current) suitPanel.current.scale.setScalar(Math.max(0.12, suitAlpha) * (1 + Math.sin(time * 7) * 0.04))
+    if (shell.current) shell.current.scale.setScalar(0.8 + suitAlpha * 0.2 + Math.sin(time * 3) * 0.018 + victory * 0.04)
   }
 
   function createCtrl() {
@@ -169,11 +202,16 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     const cc = ctrl.current
     if (!b || !col || !cc) return
     const dt = Math.min(dtRaw, 0.033)
-    const game = useGame.getState()
+    let game = useGame.getState()
     if (game.paused) return
+    if (game.screen === 'play' && game.suitDirection !== 0) {
+      game.setSuitProgress(game.suitProgress + game.suitDirection * SUIT_TRANSITION_SPEED * dt)
+      game = useGame.getState()
+    }
     const acceptingInput = game.screen === 'play'
     const complete = game.screen === 'complete'
     const suited = game.suited
+    const suitProgress = game.suitProgress
     const P = suited ? SUIT : BARE
     const st = s.current
 
@@ -304,7 +342,7 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
         visual.current.rotation.y = dampAngle(visual.current.rotation.y, ang, 14, dt)
       }
     }
-    animateRig(dt, suited, moving, newGrounded, st.vy, Math.hypot(hx, hz), complete)
+    animateRig(dt, suitProgress, moving, newGrounded, st.vy, Math.hypot(hx, hz), complete)
 
     // --- third-person camera ---
     v.lookDir.set(

@@ -71,6 +71,14 @@ canvas { display: block; touch-action: none; outline: none; }
   margin: 0 auto 1rem;
   text-align: center;
 }
+.transition-copy {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  max-width: 62ch;
+  margin: -0.2rem auto 1rem;
+  text-align: center;
+}
 .control-list {
   display: grid;
   grid-template-columns: 1fr;

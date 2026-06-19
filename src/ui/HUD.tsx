@@ -4,6 +4,8 @@ import { clearInput } from '../game/input'
 
 export function HUD() {
   const suited = useGame((s) => s.suited)
+  const suitProgress = useGame((s) => s.suitProgress)
+  const suitDirection = useGame((s) => s.suitDirection)
   const moments = useGame((s) => s.moments)
   const total = useGame((s) => s.totalMoments)
   const exposure = useGame((s) => s.exposure)
@@ -16,16 +18,22 @@ export function HUD() {
     return () => document.removeEventListener('pointerlockchange', fn)
   }, [])
 
+  const transitioning = suitDirection !== 0
+  const stateLabel = transitioning ? (suitDirection > 0 ? 'Suiting up' : 'Suiting down') : suited ? 'Suited' : 'Bare'
+  const stateSub = transitioning
+    ? `${Math.round(suitProgress * 100)}% - ability: ${suited ? 'suited' : 'bare'}`
+    : suited ? 'fast - blind' : 'slow - seeing'
+
   return (
     <div className="hud">
       <div className="tl">
         <div className={`state-pill ${suited ? 'suited' : 'bare'}`}>
           <span className="dot" />
-          {suited ? 'Suited' : 'Bare'}
-          <span className="sub">{suited ? 'fast · blind' : 'slow · seeing'}</span>
+          {stateLabel}
+          <span className="sub">{stateSub}</span>
         </div>
         <div className="moments">
-          <span className="star">✦</span>
+          <span className="star">*</span>
           {moments} <span style={{ opacity: 0.6 }}>/ {total} moments</span>
         </div>
         {exposure < 0.999 && (

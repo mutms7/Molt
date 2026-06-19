@@ -10,6 +10,8 @@ interface State {
   runId: number
   paused: boolean
   suited: boolean
+  suitProgress: number // 0 = bare visual, 1 = suited visual
+  suitDirection: -1 | 0 | 1
   moments: number
   totalMoments: number
   exposure: number // 0..1, only meaningful when bare in a gust
@@ -23,6 +25,7 @@ interface State {
   togglePaused: () => void
   toggleSuit: () => void
   setSuit: (v: boolean) => void
+  setSuitProgress: (v: number) => void
   addMoment: () => void
   setExposure: (v: number) => void
   completeZone: (id: string, nextId?: string) => void
@@ -37,6 +40,8 @@ export const useGame = create<State>()(
       runId: 0,
       paused: false,
       suited: true,
+      suitProgress: 1,
+      suitDirection: 0,
       moments: 0,
       totalMoments: 0,
       exposure: 1,
@@ -51,6 +56,8 @@ export const useGame = create<State>()(
           runId: s.runId + 1,
           paused: false,
           suited: true,
+          suitProgress: 1,
+          suitDirection: 0,
           moments: 0,
           totalMoments: total,
           exposure: 1,
@@ -64,6 +71,8 @@ export const useGame = create<State>()(
           runId: s.runId + 1,
           paused: false,
           suited: true,
+          suitProgress: 1,
+          suitDirection: 0,
           moments: 0,
           totalMoments,
           exposure: 1,
@@ -78,12 +87,23 @@ export const useGame = create<State>()(
         set((s) => ({ paused: !s.paused }))
       },
       toggleSuit: () => {
-        if (get().paused) return
-        const n = !get().suited
-        set({ suited: n })
-        audio.molt(n)
+        const { paused, screen, suitDirection, suited } = get()
+        if (paused || screen !== 'play') return
+        const dir = suitDirection === 0 ? (suited ? -1 : 1) : ((-suitDirection) as -1 | 1)
+        set({ suitDirection: dir })
+        audio.molt(dir > 0)
       },
-      setSuit: (v) => set({ suited: v }),
+      setSuit: (v) => set({ suited: v, suitProgress: v ? 1 : 0, suitDirection: 0 }),
+      setSuitProgress: (v) => {
+        const p = Math.max(0, Math.min(1, v))
+        if (p <= 0) {
+          set({ suited: false, suitProgress: 0, suitDirection: 0 })
+        } else if (p >= 1) {
+          set({ suited: true, suitProgress: 1, suitDirection: 0 })
+        } else {
+          set({ suitProgress: p })
+        }
+      },
       addMoment: () => set((s) => ({ moments: s.moments + 1 })),
       setExposure: (v) => set({ exposure: Math.max(0, Math.min(1, v)) }),
       completeZone: (id, nextId) =>

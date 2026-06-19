@@ -30,6 +30,15 @@ async function clickText(text) {
 }
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+async function waitForHudText(text, timeout = 8000) {
+  const end = Date.now() + timeout
+  while (Date.now() < end) {
+    const hud = await page.$eval('.state-pill', (e) => e.textContent.trim()).catch(() => '')
+    if (hud.toLowerCase().includes(text.toLowerCase())) return hud
+    await wait(120)
+  }
+  throw new Error('HUD did not show: ' + text)
+}
 
 try {
   await page.goto(URL, { waitUntil: 'networkidle2', timeout: 30000 })
@@ -51,9 +60,9 @@ try {
   await page.screenshot({ path: 'shot-suited.png' })
 
   // Toggle to bare and let the color flood animate in.
-  await page.focus('canvas').catch(() => {})
+  await page.click('canvas').catch(() => {})
   await page.keyboard.press('q')
-  await wait(1400)
+  await waitForHudText('Bare')
   await page.screenshot({ path: 'shot-bare.png' })
   console.log('BARE HUD:', await page.$eval('.state-pill', (e) => e.textContent.trim()).catch(() => '?'))
 
