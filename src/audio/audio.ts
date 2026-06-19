@@ -125,6 +125,17 @@ class Engine {
     o.stop(t + 0.35)
   }
 
+  stop() {
+    if (this.timer !== null) {
+      clearInterval(this.timer)
+      this.timer = null
+    }
+    if (this.ctx) {
+      this.ctx.close()
+      this.ctx = null
+    }
+  }
+
   chime() {
     if (!this.ctx) return
     const ctx = this.ctx, t = ctx.currentTime
