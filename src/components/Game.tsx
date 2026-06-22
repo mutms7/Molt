@@ -24,15 +24,20 @@ type Cfg = {
 const CFG: Record<string, Cfg> = {
   'trend-mile': {
     skyTop: '#a9c8e6', skyBottom: '#f7e6cf', fog: '#f0e1c9', sun: '#fff1d6',
-    spawn: [0, 1.4, 8], killY: -7,
-    checkpoints: [{ when: (p) => p.z < -16, at: [0, 1.6, -20] }],
+    spawn: [0, 1.4, 12], killY: -7,
+    checkpoints: [
+      { when: (p) => p.z < 1, at: [0, 1.6, -3] }, // plaza B (after the small gap)
+      { when: (p) => p.z < -14, at: [0, 1.6, -18.5] }, // platform C (after the dash gap)
+      { when: (p) => p.z < -31, at: [0, 1.6, -35.5] }, // platform D (after the stones)
+    ],
   },
   'glasshouse': {
     skyTop: '#1d9e75', skyBottom: '#c2d9db', fog: '#bcd6d4', sun: '#eafff6',
-    spawn: [0, 1.4, 8], killY: -4,
+    spawn: [0, 1.4, 9], killY: -4,
     checkpoints: [
-      { when: (p) => p.z < -6, at: [0, 1.6, -7] }, // before the flooded nave
-      { when: (p) => p.z < -23, at: [0, 1.6, -26] }, // on the far bank
+      { when: (p) => p.z < -2, at: [0, 1.6, -8] }, // plaza B (before the flooded nave)
+      { when: (p) => p.z < -26, at: [0, 1.6, -30] }, // far bank (after the nave)
+      { when: (p) => p.z < -42, at: [0, 3.9, -46] }, // elevated roof walkway
     ],
   },
 }

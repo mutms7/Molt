@@ -82,9 +82,9 @@ try {
   const bareStands = bareRest.y > 0.6 && bareRest.z < -12 // still up on the stone, didn't fall
   console.log('bare on stone  :', JSON.stringify(bareRest), bareStands ? '(stands on water-route)' : '(fell - BAD)')
 
-  // --- reaching the goal completes the zone ---
-  await teleport(0, 4.6, -41)
-  await wait(900)
+  // --- reaching the goal (on the high far bank) completes the zone ---
+  await teleport(0, 4.6, -67)
+  await wait(1200)
   const completed = await page.$eval('.card h2', (e) => e.textContent.trim()).catch(() => '')
   console.log('goal reached   :', completed ? `complete screen: "${completed}"` : '(no complete screen - BAD)')
 

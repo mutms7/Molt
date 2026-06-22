@@ -15,6 +15,7 @@ npm run dev                    # http://localhost:5173
 npm run build                  # tsc -b && vite build (STRICT: unused vars fail the build)
 node scripts/verify.mjs        # headless smoke test + screenshots (shot-suited.png, shot-bare.png)
 node scripts/verify-wall.mjs   # headless physics check (per-axis wall collision)
+node scripts/verify-reach.mjs  # plays Trend Mile's hardest jumps for real (dash gap, step-up, respawn)
 node scripts/verify-glasshouse.mjs  # smoke + the bare-only water-route twist (a per-zone template)
 ```
 
@@ -107,9 +108,13 @@ Practical reach (use as ceilings, leave margin):
 | Suited (double jump) | ~3.5 m | wide |
 | Suited dash-jump | ~2 m | ~6–7 m |
 
-So: a gap of ~6 m is crossable suited (dash-jump) but not bare; pair it with `HiddenPlatform`
-stepping stones for the bare route (this is the Trend Mile gap, z -8..-14). Steps ~0.85 m
-tall are climbable by both. Lips ≤ 0.3 m are auto-stepped (no jump needed).
+So: a ~6 m gap is crossable suited (dash-jump) but not bare (the Trend Mile dash gap,
+z -8..-14, is exactly this, and forces the suit). A gap wider than a dash-jump (~8 m+) has
+*no* suited answer, so a bare-only `HiddenPlatform` walkway is the only way over (the Trend
+Mile stone crossing at z -23..-31, and both of the Glasshouse water-routes). Bridge such a
+gap with overlapping stones (spacing < depth) so the bare player walks rather than
+pixel-jumps. Steps ~0.85 m tall are climbable by both; a ~1.7 m step forces the suit (bare
+tops out near 1.3 m). Lips ≤ 0.3 m are auto-stepped (no jump needed).
 
 ## The two-state design language
 
@@ -133,6 +138,24 @@ Puzzle patterns that work:
 Note on the transition: pressing `Q` drives a reversible morph (`suitProgress` 0→1).
 Abilities only switch at the committed ends (0 or 1), so a half-toggle gives nothing. Don't
 design puzzles that require ability access mid-morph.
+
+## Level shape: teach one idea per checkpoint
+
+Zones are long now, not vertical slices. Build them as a sequence of segments that each
+introduce or escalate exactly one idea, with a checkpoint at the start of each so a fall
+costs one segment, never the whole run. The two playable zones are the template:
+
+- **The Trend Mile** (the tutorial): walk → small 2.2 m jump → **CP1** → 6 m dash gap
+  (the suit's power) → **CP2** → bare-only stone crossing (the molt reveal) + moments →
+  **CP3** → a gust ledge (the hazard) → re-suit and climb out → goal. One new verb at a time.
+- **The Glasshouse** (escalation): assumes all of the above, then a dash recap → **CP1** →
+  the flooded nave (bare-only, mandatory) → **CP2** → a suited climb onto the glass roof →
+  **CP3** → a *second*, elevated water-route where a fall costs more → goal.
+
+Checkpoints arm in order and never un-arm (monotonic), so list them front-to-back and put
+each `at` on the safe platform that opens the next segment. Set `killY` just under the
+lowest floor of the run (Trend Mile `-7`, Glasshouse `-4`). Keep the area around the spawn
+full-corridor width (x ±12) so `verify-wall.mjs` can still press the curb near the start.
 
 ## Entity API reference
 

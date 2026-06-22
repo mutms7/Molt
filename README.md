@@ -105,8 +105,8 @@ plays.
 
 | Zone | Twist | Status |
 |---|---|---|
-| The Trend Mile | crowd promenade; cross the gap by dash-jump (suited) or bare-only stones | **playable (vertical slice)** |
-| The Glasshouse | rain opens hidden water-routes; the flooded nave is bare-only | **playable** |
+| The Trend Mile | a long teaching promenade: jump, then dash a gap, then molt to cross bare-only stones, then a gust, then climb out, across three checkpoints | **playable** |
+| The Glasshouse | rain-flooded atrium: the suit can't cross water, so you take bare-only water-routes, twice, the second time on the high glass roof | **playable** |
 | The Underhum | trade your suit-light for the glow only stillness shows | planned |
 | The Gallery of Faces | wear the right face to pass, then take it off | planned |
 | The Open Field | no suit to help you, just the air | planned |
