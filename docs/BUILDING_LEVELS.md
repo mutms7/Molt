@@ -1,0 +1,183 @@
+# Molt, handoff: building new levels (zones)
+
+This doc is for a fresh chat whose job is to add new playable zones to Molt. Read
+[../README.md](../README.md) first for the big picture, then this for the how. Molt is a
+**3D puzzle platformer**: the player runs/jumps/dashes and toggles between **suited** and
+**bare** states to solve traversal puzzles. Treat it as a game-feel project first.
+
+The vertical-slice zone, `The Trend Mile`, is the reference implementation. Copy its shape.
+
+## Run / verify / deploy
+
+```bash
+npm install
+npm run dev                    # http://localhost:5173
+npm run build                  # tsc -b && vite build (STRICT: unused vars fail the build)
+node scripts/verify.mjs        # headless smoke test + screenshots (shot-suited.png, shot-bare.png)
+node scripts/verify-wall.mjs   # headless physics check (per-axis wall collision)
+```
+
+- Repo is `mutms7/Molt`, branch `main`. Vercel auto-deploys `main`.
+- To push, the **mutms7** account must be active in gh:
+  `gh auth switch --user mutms7` → `git push` → (optionally `gh auth switch --user wchenyinmethod`).
+- Do **not** touch the separate visual-novel repo at `../visualnovel` ("The Air Outside").
+- Always keep it runnable; run `npm run build` before committing (it type-checks).
+
+## How a zone is wired (4 touch points)
+
+A zone is plain data + a geometry component. To add one (example: `glasshouse`):
+
+1. **`src/zones/zones.ts`** — the zone already exists as `status: 'soon'`. Flip it to
+   `status: 'play'` and set `next` if it chains to another zone. (`id`, `idx`, `name`,
+   `tag`, `twist`, `colors` drive the level-select card.)
+
+2. **`src/zones/Glasshouse.tsx`** — the geometry component. Model it exactly on
+   [../src/zones/TrendMile.tsx](../src/zones/TrendMile.tsx): arrays of pieces mapped to
+   entity components, wrapped in a `<group>`. **It must set the moment count on mount:**
+   ```tsx
+   useEffect(() => { useGame.setState({ totalMoments: MOMENTS.length, moments: 0 }) }, [])
+   ```
+
+3. **`src/components/Game.tsx`** — add a palette + spawn entry to `CFG` and render the zone:
+   ```tsx
+   const CFG = {
+     'trend-mile': { skyTop:'#a9c8e6', skyBottom:'#f7e6cf', fog:'#f0e1c9', sun:'#fff1d6', spawn:[0,1.4,8] },
+     'glasshouse': { skyTop:'#1d9e75', skyBottom:'#c2d9db', fog:'#bcd6d4', sun:'#eafff6', spawn:[0,1.4,8] },
+   }
+   // ...inside <Physics>:
+   {zoneId === 'trend-mile' && <TrendMile />}
+   {zoneId === 'glasshouse' && <Glasshouse />}
+   ```
+
+4. **Moment count** lives in TWO maps right now (a known wart):
+   `MOMENT_COUNT` in [../src/ui/LevelSelect.tsx](../src/ui/LevelSelect.tsx) and
+   [../src/ui/CompleteScreen.tsx](../src/ui/CompleteScreen.tsx). Add your zone to both, or
+   better, do the small refactor below. The zone's `useEffect` is the source of truth for
+   the live HUD; these maps only seed the count passed to `startZone`/replay.
+
+**Unlocking:** a zone shows as playable only if `status: 'play'` AND its `id` is in the
+store's `unlocked[]`. Finishing a zone calls `completeZone(zoneId, nextId)` (from `Goal`),
+which adds `nextId` to `unlocked`. For testing a zone directly, either add its id to the
+default `unlocked` in [../src/game/store.ts](../src/game/store.ts) or clear localStorage
+(key `molt-progress`) after wiring. Progress is persisted, so re-test in a fresh profile or
+clear that key when unlock logic changes.
+
+## ⚠️ Do this first: generalize spawn / checkpoint / kill-plane
+
+Right now respawn is **hardcoded to Trend Mile** in
+[../src/components/Player.tsx](../src/components/Player.tsx):
+
+```ts
+if (!st.cpDone && nz < -16) { checkpoint.set(0, 1.6, -20); st.cpDone = true }
+if (ny < -7) { /* respawn to checkpoint */ }
+```
+
+A new zone with different geometry will respawn players to the wrong place or never check-
+point. Before building zone geometry, lift this into per-zone config. Suggested shape: add
+to each `CFG` entry in `Game.tsx`:
+
+```ts
+spawn: [x,y,z],
+killY: -7,                                   // fall below this -> respawn
+checkpoints: [{ when: (p) => p.z < -16, at: [0,1.6,-20] }],  // ordered, first match arms
+```
+
+Pass `killY` + `checkpoints` into `<Player />` and replace the hardcoded block with a loop
+over `checkpoints`. Keep the default checkpoint = spawn. This is the single most important
+cleanup for multi-zone work.
+
+## Coordinate & scale conventions
+
+- Y is up. Units are meters-ish.
+- A floor `Slab` at `pos.y = -0.25` with `size.y = 0.5` has its **top at y = 0**. Most
+  Trend Mile floors use this, so "ground level" is y = 0.
+- Player capsule: radius `0.4`, half-height `0.5`; the body origin sits ~`0.9` above the
+  feet. **Spawn** with y ≈ floorTop + 1.0 (Trend Mile uses `[0, 1.4, 8]`).
+- Collectibles sit at y ≈ floorTop + 1 so they float at chest height.
+- `Goal` triggers on horizontal distance < 2.0 and player y > `pos.y - 0.6`.
+
+## Movement budget (design solvable jumps with these)
+
+From `Player.tsx` constants: `GRAVITY = -52`, suited `{speed 9, jump 15, double-jump}`,
+bare `{speed 5.5, jump 12.5, single}`, dash `24 u/s for 0.2s` (suited only), coyote `0.1s`.
+
+Practical reach (use as ceilings, leave margin):
+
+| | up (height) | flat gap |
+|---|---|---|
+| Bare (single jump) | ~1.3 m | ~2.5 m |
+| Suited (single jump) | ~2.0 m | ~5 m |
+| Suited (double jump) | ~3.5 m | wide |
+| Suited dash-jump | ~2 m | ~6–7 m |
+
+So: a gap of ~6 m is crossable suited (dash-jump) but not bare; pair it with `HiddenPlatform`
+stepping stones for the bare route (this is the Trend Mile gap, z -8..-14). Steps ~0.85 m
+tall are climbable by both. Lips ≤ 0.3 m are auto-stepped (no jump needed).
+
+## The two-state design language
+
+This is the heart of every puzzle. Suited and bare must each be the *only* answer to
+different obstacles, so the player is rewarded for switching at the right moment.
+
+- **Suited**: fast, dash, double-jump, armored (push through gusts), but the world is
+  desaturated and **bare-only geometry is invisible and non-solid**.
+- **Bare**: slow, single jump, fragile (exposure drains in gusts), but **sees and can stand
+  on hidden platforms**, sees collectible "moments", and reads true state.
+
+Puzzle patterns that work:
+- **Perception gate**: a route only visible/solid while bare (`HiddenPlatform`) past a gap
+  only crossable while suited (dash-jump). Forces a mid-air-adjacent state plan.
+- **Power gate**: a tall wall or wide gap that needs the suited double-jump/dash.
+- **Hazard gate**: a `GustZone` over a ledge holding a moment, so going bare there is a
+  risk/reward (exposure drains; empty = forced re-suit, a gentle reset, never death).
+- **Alternation**: chain segments that require suited, then bare, then suited, so the player
+  toggles in flow. Keep the suit-transition cost in mind (see below).
+
+Note on the transition: pressing `Q` drives a reversible morph (`suitProgress` 0→1).
+Abilities only switch at the committed ends (0 or 1), so a half-toggle gives nothing. Don't
+design puzzles that require ability access mid-morph.
+
+## Entity API reference
+
+All live in `src/components/`. Only `Slab` (fixed cuboid) and `HiddenPlatform` (while bare)
+and the player are **solid**. Decorative meshes (NPC, Pillar, GustZone visuals) have **no
+collider**, so every wall/floor/platform you can stand on must be a `Slab` (or a fixed
+RigidBody you add).
+
+| Component | Props | Notes |
+|---|---|---|
+| `Slab` (local helper in TrendMile) | `pos, size, color?` | Static cuboid floor/wall. Copy it into your zone file, or extract to a shared `components/Blocks.tsx`. |
+| `HiddenPlatform` | `position, size?=[2,0.3,1.5]` | Bare-only: visible + solid only while bare; fades/de-collides when suited. Stand on one and press Q to suit and you drop (intended). |
+| `Collectible` | `position` | A "moment". Visible + collectible only while bare; auto-collects within ~1.35 m; increments `moments`. |
+| `GustZone` | `position, size` | Box hazard. While bare inside, drains `exposure`; at 0 forces re-suit. No collider. |
+| `Goal` | `position, zoneId, nextId?` | Completes the zone (triggers `completeZone`) and unlocks `nextId`. One per zone. |
+| `NPC` | `position, color, rot` | Decorative figure (crowd flavor). No collider. |
+| `Pillar` (local helper) | `pos, banner` | Decorative. |
+
+The color flood, audio low-pass, particles, sky, and camera are global (`PostFX`,
+`SceneRig`, `SkyDome`, `Particles`, `Player`); a new zone doesn't touch them beyond the
+`CFG` palette.
+
+## Testing a zone fast
+
+- `npm run dev`, click into the zone from the level-select.
+- In dev, the console exposes debug hooks (from `src/game/fx.ts`):
+  `window.__moltPos` (live player Vector3) and `window.__moltDebug.teleport(x, y, z)` to jump
+  to a spot and test a jump/gap without walking there. `scripts/verify-wall.mjs` uses these.
+- Headless `node scripts/verify.mjs` catches console/runtime errors and saves before/after
+  (suited vs bare) screenshots, useful to confirm a new zone renders and the flood works.
+
+## Planned zones and their distinct twist (keep them mechanically different)
+
+From `zones.ts`: 2 `Glasshouse` (rain opens bare-only water routes), 3 `Underhum` (dark; the
+suit-light blinds you to a glow only stillness shows), 4 `Gallery of Faces` (decoration /
+identity puzzle), 5 `Open Field` (synthesis; little/no suit help). Each should introduce one
+new idea, not reskin Trend Mile.
+
+## Soul / scope guardrails (light touch)
+
+Puzzle-platformer first, fun before theme. Tone is gentle, never cruel; no fail-states
+harsher than the soft re-suit. The suited/bare duality and the four motifs (ants, a sticker/
+decoration, rain, a hummed melody) are the identity, weave them in as mechanics, never as
+exposition. Don't regress the movement feel: per-axis wall collision (you keep vertical
+momentum sliding up a wall), snappy jumps, no jitter/stick/launch.

@@ -144,7 +144,10 @@ scripts/
 ```
 
 Adding a zone: add an entry to `src/zones/zones.ts`, build its geometry component (model it
-on `TrendMile.tsx`), and wire it into `src/components/Game.tsx` with a palette config.
+on `TrendMile.tsx`), and wire it into `src/components/Game.tsx` with a palette config. See
+[docs/BUILDING_LEVELS.md](docs/BUILDING_LEVELS.md) for the full level-authoring guide
+(entity APIs, movement budget, the two-state puzzle language, and the spawn/checkpoint
+cleanup to do first).
 
 ## Verify
 
