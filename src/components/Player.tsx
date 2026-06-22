@@ -33,7 +33,20 @@ function dampAngle(current: number, target: number, lambda: number, dt: number) 
   return current + delta * (1 - Math.exp(-lambda * dt))
 }
 
-export function Player({ spawn }: { spawn: [number, number, number] }) {
+// Per-zone respawn config. A checkpoint arms (becomes the respawn point) the
+// first frame its `when` predicate is true; they arm in order as you progress.
+export type PlayerPoint = { x: number; y: number; z: number }
+export type Checkpoint = { when: (p: PlayerPoint) => boolean; at: [number, number, number] }
+
+export function Player({
+  spawn,
+  killY = -7,
+  checkpoints = [],
+}: {
+  spawn: [number, number, number]
+  killY?: number
+  checkpoints?: Checkpoint[]
+}) {
   const body = useRef<RapierRigidBody>(null)
   const colRef = useRef<RapierCollider>(null)
   const visual = useRef<THREE.Group>(null)
@@ -67,7 +80,7 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     dashTimer: 0,
     dashCd: 0,
     camInit: false,
-    cpDone: false,
+    cpIndex: 0,
     runPhase: 0,
     runBlend: 0,
     landTimer: 0,
@@ -185,6 +198,14 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     cc.setCharacterMass(1)
     return cc
   }
+
+  // Default respawn point is the spawn. Game remounts per run (keyed on runId),
+  // so this re-seeds the checkpoint and arming index at the start of every run.
+  useEffect(() => {
+    checkpoint.set(spawn[0], spawn[1], spawn[2])
+    s.current.cpIndex = 0
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     const cc = createCtrl()
@@ -320,12 +341,13 @@ export function Player({ spawn }: { spawn: [number, number, number] }) {
     let ny = cur.y
     let nz = cur.z
 
-    // --- checkpoint after the gap, gentle respawn if you fall ---
-    if (!st.cpDone && nz < -16) {
-      checkpoint.set(0, 1.6, -20)
-      st.cpDone = true
+    // --- per-zone checkpoints arm in order; gentle respawn on a fall ---
+    while (st.cpIndex < checkpoints.length && checkpoints[st.cpIndex].when({ x: nx, y: ny, z: nz })) {
+      const at = checkpoints[st.cpIndex].at
+      checkpoint.set(at[0], at[1], at[2])
+      st.cpIndex++
     }
-    if (ny < -7) {
+    if (ny < killY) {
       nx = checkpoint.x
       ny = checkpoint.y
       nz = checkpoint.z

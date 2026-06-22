@@ -15,6 +15,7 @@ npm run dev                    # http://localhost:5173
 npm run build                  # tsc -b && vite build (STRICT: unused vars fail the build)
 node scripts/verify.mjs        # headless smoke test + screenshots (shot-suited.png, shot-bare.png)
 node scripts/verify-wall.mjs   # headless physics check (per-axis wall collision)
+node scripts/verify-glasshouse.mjs  # smoke + the bare-only water-route twist (a per-zone template)
 ```
 
 - Repo is `mutms7/Molt`, branch `main`. Vercel auto-deploys `main`.
@@ -38,22 +39,24 @@ A zone is plain data + a geometry component. To add one (example: `glasshouse`):
    useEffect(() => { useGame.setState({ totalMoments: MOMENTS.length, moments: 0 }) }, [])
    ```
 
-3. **`src/components/Game.tsx`** — add a palette + spawn entry to `CFG` and render the zone:
+3. **`src/components/Game.tsx`** — add a palette + spawn/respawn entry to `CFG` and render
+   the zone (see the `Cfg` type for the full shape, incl. `killY`/`checkpoints` above):
    ```tsx
    const CFG = {
-     'trend-mile': { skyTop:'#a9c8e6', skyBottom:'#f7e6cf', fog:'#f0e1c9', sun:'#fff1d6', spawn:[0,1.4,8] },
-     'glasshouse': { skyTop:'#1d9e75', skyBottom:'#c2d9db', fog:'#bcd6d4', sun:'#eafff6', spawn:[0,1.4,8] },
+     'glasshouse': {
+       skyTop:'#1d9e75', skyBottom:'#c2d9db', fog:'#bcd6d4', sun:'#eafff6',
+       spawn:[0,1.4,8], killY:-4, checkpoints:[/* ... */],
+     },
    }
    // ...inside <Physics>:
-   {zoneId === 'trend-mile' && <TrendMile />}
    {zoneId === 'glasshouse' && <Glasshouse />}
    ```
 
-4. **Moment count** lives in TWO maps right now (a known wart):
-   `MOMENT_COUNT` in [../src/ui/LevelSelect.tsx](../src/ui/LevelSelect.tsx) and
-   [../src/ui/CompleteScreen.tsx](../src/ui/CompleteScreen.tsx). Add your zone to both, or
-   better, do the small refactor below. The zone's `useEffect` is the source of truth for
-   the live HUD; these maps only seed the count passed to `startZone`/replay.
+4. **Moment count** is now a single source: `MOMENT_COUNT` in
+   [../src/zones/zones.ts](../src/zones/zones.ts), imported by `LevelSelect` and
+   `CompleteScreen`. Add your zone's count there (keep it in sync with the zone's `MOMENTS`
+   array). The zone's `useEffect` is still the source of truth for the live HUD; this map
+   only seeds the count passed to `startZone`/replay.
 
 **Unlocking:** a zone shows as playable only if `status: 'play'` AND its `id` is in the
 store's `unlocked[]`. Finishing a zone calls `completeZone(zoneId, nextId)` (from `Goal`),
@@ -62,29 +65,23 @@ default `unlocked` in [../src/game/store.ts](../src/game/store.ts) or clear loca
 (key `molt-progress`) after wiring. Progress is persisted, so re-test in a fresh profile or
 clear that key when unlock logic changes.
 
-## ⚠️ Do this first: generalize spawn / checkpoint / kill-plane
+## ✅ Done: spawn / checkpoint / kill-plane are per-zone config
 
-Right now respawn is **hardcoded to Trend Mile** in
-[../src/components/Player.tsx](../src/components/Player.tsx):
-
-```ts
-if (!st.cpDone && nz < -16) { checkpoint.set(0, 1.6, -20); st.cpDone = true }
-if (ny < -7) { /* respawn to checkpoint */ }
-```
-
-A new zone with different geometry will respawn players to the wrong place or never check-
-point. Before building zone geometry, lift this into per-zone config. Suggested shape: add
-to each `CFG` entry in `Game.tsx`:
+This used to be hardcoded to Trend Mile in `Player.tsx`. It now lives in each `CFG` entry in
+[../src/components/Game.tsx](../src/components/Game.tsx) and is passed into `<Player />`:
 
 ```ts
-spawn: [x,y,z],
-killY: -7,                                   // fall below this -> respawn
-checkpoints: [{ when: (p) => p.z < -16, at: [0,1.6,-20] }],  // ordered, first match arms
+spawn: [x, y, z],
+killY: -4,                                   // fall below this -> respawn to last checkpoint
+checkpoints: [                               // arm in order as the player advances
+  { when: (p) => p.z < -6, at: [0, 1.6, -7] },
+  { when: (p) => p.z < -23, at: [0, 1.6, -26] },
+],
 ```
 
-Pass `killY` + `checkpoints` into `<Player />` and replace the hardcoded block with a loop
-over `checkpoints`. Keep the default checkpoint = spawn. This is the single most important
-cleanup for multi-zone work.
+`Player.tsx` exports the `Checkpoint` type, seeds the checkpoint to `spawn` on mount (the
+default), and each frame arms the next checkpoint whose `when(pos)` is true. Just author the
+two fields per zone; no Player edits needed.
 
 ## Coordinate & scale conventions
 

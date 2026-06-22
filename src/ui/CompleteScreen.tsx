@@ -1,8 +1,6 @@
 import { useEffect } from 'react'
 import { useGame } from '../game/store'
-import { zoneById } from '../zones/zones'
-
-const MOMENT_COUNT: Record<string, number> = { 'trend-mile': 8 }
+import { zoneById, MOMENT_COUNT } from '../zones/zones'
 
 export function CompleteScreen() {
   const zoneId = useGame((s) => s.zoneId)

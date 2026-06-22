@@ -1,8 +1,6 @@
 import { useGame } from '../game/store'
-import { ZONES } from '../zones/zones'
+import { ZONES, MOMENT_COUNT } from '../zones/zones'
 import { audio } from '../audio/audio'
-
-const MOMENT_COUNT: Record<string, number> = { 'trend-mile': 8 }
 
 export function LevelSelect() {
   const unlocked = useGame((s) => s.unlocked)

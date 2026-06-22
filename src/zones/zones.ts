@@ -18,7 +18,7 @@ export const ZONES: Zone[] = [
   {
     id: 'glasshouse', idx: 2, name: 'The Glasshouse', tag: 'rain-soaked atrium',
     twist: 'Rain opens hidden water-routes, but only to the bare.',
-    colors: ['#1d9e75', '#c2d9db', '#0f6e56'], status: 'soon',
+    colors: ['#1d9e75', '#c2d9db', '#0f6e56'], status: 'play', next: 'underhum',
   },
   {
     id: 'underhum', idx: 3, name: 'The Underhum', tag: 'service substrata',
@@ -38,3 +38,11 @@ export const ZONES: Zone[] = [
 ]
 
 export const zoneById = (id: string | null) => ZONES.find((z) => z.id === id)
+
+// Moment (collectible) count per zone. Single source of truth for the count
+// seeded into the store on startZone/replay; the zone's own useEffect drives
+// the live HUD. Keep in sync with the MOMENTS array in each zone component.
+export const MOMENT_COUNT: Record<string, number> = {
+  'trend-mile': 8,
+  'glasshouse': 8,
+}
