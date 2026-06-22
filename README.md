@@ -1,109 +1,155 @@
 # Molt
 
-> A 3D browser game about stepping out of your shell, and actually seeing the world.
+A 3D puzzle platformer about precise movement. You run, jump, and dash through hand-built
+zones, switching between two states (suited and bare) to cross gaps, reveal hidden paths,
+and solve traversal puzzles. Suited you're fast and armored but the world is muted and some
+geometry is invisible to you; bare you're slower and exposed but the world opens up, hidden
+platforms appear, and collectible "moments" come into view. The whole game is the question
+of *when* to wear the shell and when to step out of it.
 
-In a city where everyone moves sealed inside a decorated exo-suit, you learn to *molt*:
-shed the suit at will. **Suited**, you're fast and armored and you blend into the crowd,
-but the world is muted gray and most of what's real stays invisible to you. **Bare**,
-you're slow and exposed, but color, sound, hidden paths, and the true state of people and
-things come flooding back. The whole game is the moment-to-moment question of when to wear
-the shell and when to leave it.
-
-This is its own game. It takes the universe-flavor (suits as masks, the quiet power of
-presence, four recurring motifs) from a separate finished visual-novel project and builds
-something new in that register: gentle, wistful, never cruel. Hope is intimate, not
-societal. The world doesn't transform; your attention does.
-
-Register references: Ghibli, Mushishi, A Short Hike, Kentucky Route Zero.
+Built in the world-flavor of a separate visual-novel project (suits as masks, the quiet
+power of presence), but it stands on its own as a movement game. Register references:
+A Short Hike, Mushishi, Kentucky Route Zero.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev        # http://localhost:5173
 ```
 
-Build a static bundle (drop the `dist/` folder on any static host):
+Static production build (drop `dist/` on any static host):
 
 ```bash
-npm run build
+npm run build      # tsc -b && vite build
 npm run preview
 ```
 
-Controls: **WASD** move · **Mouse** look (click the scene to capture the cursor, Esc to
-release) · **Space** jump (double-jump while suited) · **Shift** dash (suited only) ·
-**Q** molt (toggle the suit on/off).
+## Controls
+
+| Action | Binding |
+|---|---|
+| Move | `W A S D` or arrow keys |
+| Look / camera | click the game to capture the cursor, then move the mouse (Esc releases) |
+| Jump | `Space` (double-jump while suited) |
+| Dash | `Shift` (suited only, short cooldown) |
+| Switch state (molt) | `Q` or `E` |
+| Pause | `Esc` or `P` |
+| Restart zone | `R` |
+| Back to the map | `M`, or from the pause menu |
+
+The intro and this controls list show on the title screen and from the pause menu (the
+"Controls" button). The game is keyboard + mouse; no gamepad support yet.
 
 ## The core mechanic: the Shell
 
-One instant toggle, a real trade-off both ways. The cost of being suited isn't a timer,
-it's *perceptual*: you literally cannot see the solution.
+One toggle, a real trade-off both ways. The cost of being suited isn't a timer, it's that
+you can't perceive the solution.
 
 | | Suited | Bare |
 |---|---|---|
-| Speed | fast + dash + double jump | slow, single jump |
-| Hazards | armored, bull through | vulnerable (exposure drains in gusts) |
-| Crowd | blends in | stands out |
-| The world | desaturated, muffled, hidden geometry invisible | floods with color + sound, hidden platforms appear, "moments" become collectable |
+| Speed | fast, plus dash and double-jump | slower, single jump |
+| Hazards | armored, push through | vulnerable (exposure drains in gusts) |
+| The world | desaturated, muffled, hidden geometry invisible | floods with color and sound, hidden platforms appear, "moments" become collectible |
 
-Mastery is fluid switching mid-traversal. Speedrunners optimize the switches; the unhurried
-linger bare and notice things. Both are first-class.
+### The transition is reversible (and not exploitable)
+
+Pressing `Q` doesn't snap states, it drives a transition. Think of it as a normalized
+progress value from `0` (bare) to `1` (suited):
+
+- `Q` starts moving progress toward the opposite state, with a visible morph between the two
+  looks (the suit assembles or sheds).
+- Tap `Q` again mid-transition and it reverses smoothly from wherever it currently is. No
+  snapping, no waiting for it to finish, no double-trigger weirdness.
+- The committed state only flips when progress actually reaches an end (`0` or `1`).
+  **Your gameplay abilities stay on the current committed state for the whole transition**,
+  so you can't get a target state's powers early by half-toggling. The HUD shows the live
+  percent and which ability set is active while you're mid-morph.
+
+## Movement feel
+
+The character uses Rapier's kinematic character controller with per-axis move-and-slide,
+so movement is crisp and predictable:
+
+- **Walls don't kill your jump.** Horizontal and vertical motion resolve independently. Bump
+  a side wall while rising and you keep rising, sliding up the wall; only an actual ceiling
+  stops upward motion and only the ground stops downward motion.
+- Fairly strong gravity (little float), snappy jumps, instant horizontal response.
+- Coyote time, a suited double-jump, and a suited dash burst (dashing keeps your vertical
+  velocity, so you can dash across mid-air).
+- No physics jitter, sticking, or launching against walls.
+
+## Character and animation
+
+The player is a small procedurally-animated rig (no external model files) with distinct
+states: idle, walk/run (speed-blended), jump takeoff, airborne rise and fall, a landing
+squash, and a victory pose on level complete. The two states are genuinely different
+silhouettes, not a tint: **bare** is a lean, simple figure; **suited** is a bulkier armored
+shell with a back pack and a glowing chest panel. They cross-fade as the Shell transition
+plays.
 
 ## Secondary mechanics
 
-- **Moments** — glowing details only visible (and collectable) while bare. Slowing down to
-  notice is mechanically rewarded. This is the thesis, made playable.
+- **Moments** — glowing collectibles only visible (and collectible) while bare. Slowing down
+  to notice is rewarded.
 - **Hidden platforms** — stepping stones you can only see, and only stand on, while bare.
 - **Gusts** — being bare in a gust drains *exposure*; empty it and you're forced back into
   the suit (a gentle reset, never a death).
-- Planned: a **sticker / decoration** system with real gameplay effects + crowd-blend
-  social currency; **rain** that amplifies bare-perception; the **hummed melody** as a
-  collectable call-and-response; **ants** as a diegetic guidance system.
+- **The color flood** — a custom postprocessing grade (desaturate + bloom) sells the suited
+  vs bare shift; the suit is also a real audio low-pass filter that opens when you go bare,
+  and a hummed melody fades in.
+- Planned: a sticker/decoration system with real effects + crowd-blend, rain that boosts
+  bare perception, the melody as a collectible, ants as diegetic guidance.
 
 ## Zones (a hub + 5, each its own palette and twist)
 
-1. **The Trend Mile** — glossy promenade. Crowd-blend + the gap you cross differently
-   suited vs bare. *(playable now — the vertical slice)*
-2. **The Glasshouse** — rain-soaked atrium. Rain opens hidden water-routes. *(planned)*
-3. **The Underhum** — service substrata. Trade your suit-light for the glow only stillness
-   shows. *(planned)*
-4. **The Gallery of Faces** — mirrored plaza. Wear the right face to pass, then take it off.
-   *(planned)*
-5. **The Open Field** — the edge of the city. No suit to help you. Just the air. *(planned)*
+| Zone | Twist | Status |
+|---|---|---|
+| The Trend Mile | crowd promenade; cross the gap by dash-jump (suited) or bare-only stones | **playable (vertical slice)** |
+| The Glasshouse | rain opens hidden water-routes for the bare | planned |
+| The Underhum | trade your suit-light for the glow only stillness shows | planned |
+| The Gallery of Faces | wear the right face to pass, then take it off | planned |
+| The Open Field | no suit to help you, just the air | planned |
 
-## Tech
+## Tech stack
 
-- **React-Three-Fiber + Three.js + Vite + TypeScript** — good-looking 3D, ships static.
-- **Rapier** (`@react-three/rapier`) — physics + character controller.
-- **`@react-three/postprocessing`** — the suited↔bare flood (a custom desaturation grade +
-  bloom) lives in `src/components/PostFX.tsx`.
-- **Zustand** — game state (`src/game/store.ts`), progress persisted to localStorage.
-- **Web Audio** (custom, `src/audio/audio.ts`) — procedural ambient score; the suit is a
-  real low-pass filter that opens when you go bare; the hummed melody fades in with bareness.
-  No audio files shipped.
+| Layer | Choice |
+|---|---|
+| 3D / rendering | [Three.js](https://threejs.org) `0.184` via [React-Three-Fiber](https://r3f.docs.pmnd.rs) `9` |
+| Build / dev | [Vite](https://vite.dev) `8` + TypeScript `6` (ships as static files) |
+| Physics | [Rapier](https://rapier.rs) via `@react-three/rapier` `2` (WASM), kinematic character controller |
+| Post-processing | `@react-three/postprocessing` `3` / `postprocessing` `6` (custom desaturation grade + bloom) |
+| State | [Zustand](https://zustand.docs.pmnd.rs) `5`, progress persisted to `localStorage` |
+| Audio | Web Audio API, hand-written procedural engine (no audio files): ambient pad through a low-pass "suit filter" + a hummed melody |
+| Tests | Puppeteer headless smoke + physics checks (`scripts/`) |
 
-Desktop packaging (later): wrap with **Tauri** for a small downloadable build.
+Everything renders from code and primitives, no external 3D models, textures, or audio
+files. Desktop packaging later: wrap with Tauri for a small downloadable build.
 
-## Layout
+## Project layout
 
 ```
 src/
-  game/        store (zustand), input, shared per-frame refs (fx)
+  game/        store (zustand: screens, suit transition, pause, run id),
+               input (keyboard + pointer lock), shared per-frame refs (fx)
   audio/       procedural Web Audio engine
   zones/       zone metadata + The Trend Mile geometry
-  components/  Game (Canvas), Player (controller + camera), PostFX, SceneRig,
-               SkyDome, Particles, and the gameplay entities
-  ui/          Title, LevelSelect, HUD, Complete
+  components/  Game (Canvas), Player (kinematic controller + animated rig + camera),
+               PostFX (the flood), SceneRig, SkyDome, Particles, gameplay entities
+  ui/          TitleScreen (intro + controls), ControlsGuide, LevelSelect,
+               HUD, PauseMenu, CompleteScreen
 scripts/
-  verify.mjs   headless puppeteer smoke-test (console errors + screenshots)
+  verify.mjs        headless smoke test (loads the game, checks console, saves shots)
+  verify-wall.mjs   headless physics test for per-axis wall collision
 ```
 
-Adding a zone: add an entry to `src/zones/zones.ts`, build its geometry component (model
-it on `TrendMile.tsx`), and wire it into `src/components/Game.tsx` with a palette config.
+Adding a zone: add an entry to `src/zones/zones.ts`, build its geometry component (model it
+on `TrendMile.tsx`), and wire it into `src/components/Game.tsx` with a palette config.
 
 ## Verify
 
 ```bash
-npm run dev               # in one terminal
-node scripts/verify.mjs   # loads the game headless, checks console errors, saves shots
+npm run dev               # one terminal
+node scripts/verify.mjs   # smoke test + screenshots (shot-suited.png, shot-bare.png)
+node scripts/verify-wall.mjs   # confirms jumping into a wall preserves vertical momentum
 ```
