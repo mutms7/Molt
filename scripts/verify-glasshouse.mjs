@@ -27,6 +27,7 @@ const pos = () => page.evaluate(() => {
   return p ? { x: p.x, y: p.y, z: p.z } : null
 })
 const teleport = (x, y, z) => page.evaluate(([tx, ty, tz]) => globalThis.__moltDebug.teleport(tx, ty, tz), [x, y, z])
+const setSuit = (v) => page.evaluate((b) => globalThis.__moltDebug.setSuit(b), v)
 async function clickText(t) {
   await page.evaluate((tt) => {
     const el = [...document.querySelectorAll('button')].find((b) => (b.textContent || '').toLowerCase().includes(tt.toLowerCase()))
@@ -64,27 +65,28 @@ try {
   await page.click('canvas').catch(() => {})
 
   // --- twist check: a water-route stone is solid bare, not solid suited ---
-  const stone = [0, 0.95, -16.0] // a HiddenPlatform sits with its top at y 0 here
+  const stone = [3, 1.2, -24.0] // W1, a HiddenPlatform on the nave (clear of the gust)
 
   // (1) Suited: stand on the stone position -> no collider, so fall away/respawn.
+  await setSuit(true)
   await teleport(stone[0], stone[1], stone[2])
   const suitedRest = await settle()
-  // Either dropped well below the stone, or the kill-plane respawned us off the nave.
-  const suitedFellThrough = suitedRest.y < -0.5 || suitedRest.z > -10
+  // Dropped through the plank top (0.6), or the kill-plane respawned us to CP1.
+  const suitedFellThrough = suitedRest.y < 0.4 || suitedRest.z > -22
   console.log('suited on stone:', JSON.stringify(suitedRest), suitedFellThrough ? '(fell through / respawned)' : '(DID NOT fall - BAD)')
 
   // (2) Bare: same spot -> the water-route is now solid, so we hold our footing.
-  await page.keyboard.press('q')
+  await setSuit(false)
   await waitForHud('Bare')
   await page.screenshot({ path: 'shot-glasshouse-bare.png' })
   await teleport(stone[0], stone[1], stone[2])
   const bareRest = await settle()
-  const bareStands = bareRest.y > 0.6 && bareRest.z < -12 // still up on the stone, didn't fall
+  const bareStands = bareRest.y > 1.0 && bareRest.z < -20 // still up on the stone, didn't fall
   console.log('bare on stone  :', JSON.stringify(bareRest), bareStands ? '(stands on water-route)' : '(fell - BAD)')
 
   // --- reaching the goal (on the high far bank) completes the zone ---
-  await teleport(0, 4.6, -67)
-  await wait(1200)
+  await teleport(5, 6.7, -75)
+  await wait(2600)
   const completed = await page.$eval('.card h2', (e) => e.textContent.trim()).catch(() => '')
   console.log('goal reached   :', completed ? `complete screen: "${completed}"` : '(no complete screen - BAD)')
 

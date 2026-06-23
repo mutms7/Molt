@@ -105,8 +105,8 @@ plays.
 
 | Zone | Twist | Status |
 |---|---|---|
-| The Trend Mile | a long teaching promenade: jump, then dash a gap, then molt to cross bare-only stones, then a gust, then climb out, across three checkpoints | **playable** |
-| The Glasshouse | rain-flooded atrium: the suit can't cross water, so you take bare-only water-routes, twice, the second time on the high glass roof | **playable** |
+| The Trend Mile | a checkpointed obby that teaches one trick at a time: weaving hops, a dash gap, a double-jump scaffold, a mid-air molt onto a hidden plank, a gust, and a spiralling climb to the goal | **playable** |
+| The Glasshouse | a harder obby in the rain: the suit can't cross water, so you molt in mid-air onto bare-only water-routes, twice, the second time up on the high glass roof | **playable** |
 | The Underhum | trade your suit-light for the glow only stillness shows | planned |
 | The Gallery of Faces | wear the right face to pass, then take it off | planned |
 | The Open Field | no suit to help you, just the air | planned |
@@ -124,7 +124,9 @@ plays.
 | Tests | Puppeteer headless smoke + physics checks (`scripts/`) |
 
 Everything renders from code and primitives, no external 3D models, textures, or audio
-files. Desktop packaging later: wrap with Tauri for a small downloadable build.
+files. Surface textures (tile, panel, glass, water, soil) and their bump maps are generated
+once to a canvas at load (`src/components/textures.ts`). Desktop packaging later: wrap with
+Tauri for a small downloadable build.
 
 ## Project layout
 

@@ -26,18 +26,21 @@ const CFG: Record<string, Cfg> = {
     skyTop: '#a9c8e6', skyBottom: '#f7e6cf', fog: '#f0e1c9', sun: '#fff1d6',
     spawn: [0, 1.4, 12], killY: -7,
     checkpoints: [
-      { when: (p) => p.z < 1, at: [0, 1.6, -3] }, // plaza B (after the small gap)
-      { when: (p) => p.z < -14, at: [0, 1.6, -18.5] }, // platform C (after the dash gap)
-      { when: (p) => p.z < -31, at: [0, 1.6, -35.5] }, // platform D (after the stones)
+      { when: (p) => p.z < -16, at: [0, 2.2, -19] }, // R1 rest (after the intro hops)
+      { when: (p) => p.x > 6, at: [9, 3.4, -29.5] }, // E1 scaffold (after the dash gap + double-jump)
+      { when: (p) => p.x > 13, at: [16, 1.7, -39] }, // E2 (after the drop)
+      { when: (p) => p.z < -42, at: [6, 2.2, -45] }, // E3 (before the mid-air switch)
+      { when: (p) => p.z < -64, at: [0, 2.2, -67] }, // C1 rest (after the hidden walkway)
     ],
   },
   'glasshouse': {
     skyTop: '#1d9e75', skyBottom: '#c2d9db', fog: '#bcd6d4', sun: '#eafff6',
-    spawn: [0, 1.4, 9], killY: -4,
+    spawn: [0, 1.4, 10], killY: -3,
     checkpoints: [
-      { when: (p) => p.z < -2, at: [0, 1.6, -8] }, // plaza B (before the flooded nave)
-      { when: (p) => p.z < -26, at: [0, 1.6, -30] }, // far bank (after the nave)
-      { when: (p) => p.z < -42, at: [0, 3.9, -46] }, // elevated roof walkway
+      { when: (p) => p.z < -12, at: [3, 1.5, -17] }, // G3 (before the flooded nave + gust)
+      { when: (p) => p.z < -38, at: [0, 1.5, -41] }, // far bank (after the nave)
+      { when: (p) => p.z < -49, at: [6, 6.7, -52] }, // glass roof walkway
+      { when: (p) => p.z < -72, at: [5, 6.5, -75] }, // high far bank (by the goal)
     ],
   },
 }

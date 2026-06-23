@@ -139,53 +139,73 @@ Note on the transition: pressing `Q` drives a reversible morph (`suitProgress` 0
 Abilities only switch at the committed ends (0 or 1), so a half-toggle gives nothing. Don't
 design puzzles that require ability access mid-morph.
 
-## Level shape: teach one idea per checkpoint
+## Level shape: a checkpointed obby
 
-Zones are long now, not vertical slices. Build them as a sequence of segments that each
-introduce or escalate exactly one idea, with a checkpoint at the start of each so a fall
-costs one segment, never the whole run. The two playable zones are the template:
+Zones are obbies now: courses of discrete floating platforms with real jumps, weaving
+left/right and climbing/dropping toward a goal that is **up high and off to the side**, not
+at the end of a straight hallway. Each segment introduces or escalates one trick and starts
+with a checkpoint, so a fall costs one segment, never the whole run. The two playable zones
+are the template:
 
-- **The Trend Mile** (the tutorial): walk → small 2.2 m jump → **CP1** → 6 m dash gap
-  (the suit's power) → **CP2** → bare-only stone crossing (the molt reveal) + moments →
-  **CP3** → a gust ledge (the hazard) → re-suit and climb out → goal. One new verb at a time.
-- **The Glasshouse** (escalation): assumes all of the above, then a dash recap → **CP1** →
-  the flooded nave (bare-only, mandatory) → **CP2** → a suited climb onto the glass roof →
-  **CP3** → a *second*, elevated water-route where a fall costs more → goal.
+- **The Trend Mile** (the tutorial): weaving hops (jump) → **CP1** → a 5.5 m gap (dash or
+  double-jump) → **CP2/3** a +x scaffold reached by a double-jump, then a drop and a -x gap
+  → **CP4** launch suited and *molt to bare in mid-air* to land on a hidden plank → **CP5**
+  a gust ledge, then a spiralling tower climb (double-jumps) to the goal.
+- **The Glasshouse** (escalation): a dash recap → **CP1** a mid-air molt onto the flooded
+  nave, crossing a rain **gust** on the water-route before it re-suits you → **CP2** climb
+  +x onto the glass roof → **CP3** a *second*, elevated mid-air molt onto a roof water-route
+  → **CP4** the high far bank and the goal.
+
+Design jumps to the movement budget above and **leave margin** (the shipped gaps sit well
+under the max). Variety is the point: mix small precise hops, dash gaps, double-jump
+up-and-overs, drops, and direction changes (`+x`, `-x`, `-z`, up). The signature advanced
+beat is the **mid-air molt**: a gap only a *suited* launch can clear, landing on a
+bare-only `HiddenPlatform`, so you must start the morph in the air to land solid (the morph
+is ~0.4 s; a suited jump gives enough airtime).
 
 Checkpoints arm in order and never un-arm (monotonic), so list them front-to-back and put
-each `at` on the safe platform that opens the next segment. Set `killY` just under the
-lowest floor of the run (Trend Mile `-7`, Glasshouse `-4`). Keep the area around the spawn
-full-corridor width (x ±12) so `verify-wall.mjs` can still press the curb near the start.
+each `at` on a **solid** platform that opens the next segment (never on a bare-only plank, or
+a re-suit could respawn you mid-air). A predicate can be on any axis (`p.z < -42`, `p.x > 6`,
+`p.y > 5`); just make sure the path satisfies them in order. Set `killY` just under the
+lowest floor (Trend Mile `-7`, Glasshouse `-3`). Keep the spawn area full-corridor width
+(x ±12) with a side curb so `verify-wall.mjs` can still press a wall near the start.
 
 ## Entity API reference
 
-All live in `src/components/`. Only `Slab` (fixed cuboid) and `HiddenPlatform` (while bare)
-and the player are **solid**. Decorative meshes (NPC, Pillar, GustZone visuals) have **no
-collider**, so every wall/floor/platform you can stand on must be a `Slab` (or a fixed
-RigidBody you add).
+All live in `src/components/`. Only `Block` (fixed cuboid) and `HiddenPlatform` (while bare)
+and the player are **solid**. Decorative meshes (NPC, Pillar, Lamp, Pane, GustZone visuals)
+have **no collider**, so every wall/floor/platform you can stand on must be a `Block` (or a
+fixed RigidBody you add).
 
 | Component | Props | Notes |
 |---|---|---|
-| `Slab` (local helper in TrendMile) | `pos, size, color?` | Static cuboid floor/wall. Copy it into your zone file, or extract to a shared `components/Blocks.tsx`. |
-| `HiddenPlatform` | `position, size?=[2,0.3,1.5]` | Bare-only: visible + solid only while bare; fades/de-collides when suited. Stand on one and press Q to suit and you drop (intended). |
+| `Block` (`components/Blocks.tsx`) | `pos, size, kind?, color?, roughness?, metalness?, bumpScale?` | The textured static cuboid floor/step/wall. `kind` ∈ `tile`/`panel`/`glass`/`water`/`soil` picks a procedural map+bump (see `components/textures.ts`); tiling scales to size. Replaces the old per-zone `Slab`. |
+| `Pane`, `Lamp`, `Crate` (`Blocks.tsx`) | see signatures | Non-solid detail props: a glass wall pane, a glowing lamp post (adds a point light), a textured crate. |
+| `HiddenPlatform` | `position, size?=[2,0.3,1.5]` | Bare-only: visible + solid only while bare; fades/de-collides when suited (textured caustic shimmer). The mid-air-molt target. |
 | `Collectible` | `position` | A "moment". Visible + collectible only while bare; auto-collects within ~1.35 m; increments `moments`. |
 | `GustZone` | `position, size` | Box hazard. While bare inside, drains `exposure`; at 0 forces re-suit. No collider. |
 | `Goal` | `position, zoneId, nextId?` | Completes the zone (triggers `completeZone`) and unlocks `nextId`. One per zone. |
 | `NPC` | `position, color, rot` | Decorative figure (crowd flavor). No collider. |
-| `Pillar` (local helper) | `pos, banner` | Decorative. |
+| `Pillar` / `Planter` / `Water` / `Rain` (local helpers) | — | Decorative; copy from a zone file. `Water` is a textured, non-solid surface; the kill-plane catches a fall through it. |
 
-The color flood, audio low-pass, particles, sky, and camera are global (`PostFX`,
-`SceneRig`, `SkyDome`, `Particles`, `Player`); a new zone doesn't touch them beyond the
-`CFG` palette.
+Textures are generated once to a canvas (`components/textures.ts`, `getTex`/`tiled`); there
+are **no external image files**. The color flood, audio low-pass, particles, sky, and camera
+are global (`PostFX`, `SceneRig`, `SkyDome`, `Particles`, `Player`); a new zone doesn't touch
+them beyond the `CFG` palette.
 
 ## Testing a zone fast
 
 - `npm run dev`, click into the zone from the level-select.
 - In dev, the console exposes debug hooks (from `src/game/fx.ts`):
-  `window.__moltPos` (live player Vector3) and `window.__moltDebug.teleport(x, y, z)` to jump
-  to a spot and test a jump/gap without walking there. `scripts/verify-wall.mjs` uses these.
+  `window.__moltPos` (live player Vector3), `window.__moltDebug.teleport(x, y, z)` to jump to
+  a spot, and `window.__moltDebug.setSuit(bool)` to snap the suit state with no morph. The
+  verify scripts use these.
 - Headless `node scripts/verify.mjs` catches console/runtime errors and saves before/after
-  (suited vs bare) screenshots, useful to confirm a new zone renders and the flood works.
+  (suited vs bare) screenshots. `verify-reach.mjs` / `verify-glasshouse.mjs` check the
+  per-zone twist (hidden plank solid only while bare), checkpoint respawn, and the goal.
+  Note: the rich textured scene runs the **headless** renderer slowly, so those scripts use
+  the debug hooks and kill-plane teleports (timing-free) rather than replaying live
+  platforming. On real hardware the game runs at 60 fps; the jumps are within budget.
 
 ## Planned zones and their distinct twist (keep them mechanically different)
 

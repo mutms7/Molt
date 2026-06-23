@@ -1,9 +1,10 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { useGame } from '../game/store'
 import { fx } from '../game/fx'
+import { tiled } from './textures'
 
 // A stepping stone you can only see, and only stand on, while bare.
 // Suited: rendered invisible (opacity follows bareness) and has no collider.
@@ -16,9 +17,12 @@ export function HiddenPlatform({
 }) {
   const suited = useGame((s) => s.suited)
   const mat = useRef<THREE.MeshStandardMaterial>(null)
+  const tex = useMemo(() => tiled('water', '#7fd4ff', Math.max(1, size[0] / 1.6), Math.max(1, size[2] / 1.6)), [size])
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     if (mat.current) mat.current.opacity = Math.min(0.92, fx.bare * 0.95)
+    tex.map.offset.x += dt * 0.04
+    tex.bump.offset.y -= dt * 0.03
   })
 
   const mesh = (
@@ -26,9 +30,11 @@ export function HiddenPlatform({
       <boxGeometry args={size} />
       <meshStandardMaterial
         ref={mat}
+        map={tex.map}
+        emissiveMap={tex.map}
         color="#bdf0ff"
         emissive="#7fd4ff"
-        emissiveIntensity={0.7}
+        emissiveIntensity={0.8}
         transparent
         opacity={0}
         depthWrite={false}

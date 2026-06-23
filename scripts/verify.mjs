@@ -59,10 +59,12 @@ try {
   // Capture the suited (muted) state.
   await page.screenshot({ path: 'shot-suited.png' })
 
-  // Toggle to bare and let the color flood animate in.
+  // Toggle to bare and let the color flood animate in. The molt is a ~0.4 s
+  // morph at 60 fps, but the rich textured scene runs the headless renderer
+  // slowly, so allow generous wall-time for it to commit.
   await page.click('canvas').catch(() => {})
   await page.keyboard.press('q')
-  await waitForHudText('Bare')
+  await waitForHudText('Bare', 30000)
   await page.screenshot({ path: 'shot-bare.png' })
   console.log('BARE HUD:', await page.$eval('.state-pill', (e) => e.textContent.trim()).catch(() => '?'))
 

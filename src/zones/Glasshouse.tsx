@@ -1,104 +1,71 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { RigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import { useGame } from '../game/store'
+import { Block, Pane, Lamp, type V3 } from '../components/Blocks'
+import { tiled } from '../components/textures'
 import { Collectible } from '../components/Collectible'
 import { HiddenPlatform } from '../components/HiddenPlatform'
 import { GustZone } from '../components/GustZone'
 import { NPC } from '../components/NPC'
 import { Goal } from '../components/Goal'
 
-type V3 = [number, number, number]
-
-// --- local building blocks (the only solid things are Slab + HiddenPlatform) ---
-
-function Slab({ pos, size, color = '#cfe3da' }: { pos: V3; size: V3; color?: string }) {
-  return (
-    <RigidBody type="fixed" colliders="cuboid" position={pos}>
-      <mesh receiveShadow castShadow>
-        <boxGeometry args={size} />
-        <meshStandardMaterial color={color} roughness={0.9} />
-      </mesh>
-    </RigidBody>
-  )
-}
-
-// A pane of the greenhouse. Decorative, no collider; the curbs do the containing.
-function GlassPanel({ pos, size }: { pos: V3; size: V3 }) {
-  return (
-    <mesh position={pos}>
-      <boxGeometry args={size} />
-      <meshStandardMaterial
-        color="#bfe6dc"
-        emissive="#1d9e75"
-        emissiveIntensity={0.08}
-        transparent
-        opacity={0.16}
-        roughness={0.05}
-        metalness={0.2}
-        depthWrite={false}
-      />
-    </mesh>
-  )
-}
-
+// A planter with textured soil and foliage.
 function Planter({ pos }: { pos: V3 }) {
+  const soil = useMemo(() => tiled('soil', '#4a3a2c', 1, 1), [])
   return (
     <group position={pos}>
-      <mesh castShadow position={[0, 0.3, 0]}>
-        <boxGeometry args={[1.2, 0.6, 1.2]} />
+      <mesh castShadow receiveShadow position={[0, 0.3, 0]}>
+        <boxGeometry args={[1.3, 0.6, 1.3]} />
         <meshStandardMaterial color="#6f6e69" roughness={0.95} />
       </mesh>
-      <mesh castShadow position={[0, 0.95, 0]}>
+      <mesh receiveShadow position={[0, 0.61, 0]}>
+        <boxGeometry args={[1.15, 0.04, 1.15]} />
+        <meshStandardMaterial map={soil.map} bumpMap={soil.bump} bumpScale={0.08} roughness={1} />
+      </mesh>
+      <mesh castShadow position={[0, 1.0, 0]}>
         <sphereGeometry args={[0.55, 12, 12]} />
         <meshStandardMaterial color="#1d9e75" roughness={0.85} />
       </mesh>
-      <mesh castShadow position={[0.34, 1.15, 0.12]}>
+      <mesh castShadow position={[0.34, 1.2, 0.12]}>
         <sphereGeometry args={[0.34, 10, 10]} />
         <meshStandardMaterial color="#0f6e56" roughness={0.85} />
+      </mesh>
+      <mesh castShadow position={[-0.3, 1.15, -0.1]}>
+        <sphereGeometry args={[0.3, 10, 10]} />
+        <meshStandardMaterial color="#27b487" roughness={0.85} />
       </mesh>
     </group>
   )
 }
 
-// Flooded floor. A translucent, faintly rippling surface with no collider, so
-// you fall through it (the kill-plane below catches you) unless you're bare and
-// walking the hidden water-routes laid just above it.
+// Flooded floor: textured caustics, no collider, so you fall through unless you
+// are bare on the hidden water-routes laid just above it.
 function Water({ pos, size }: { pos: V3; size: V3 }) {
-  const mat = useRef<THREE.MeshStandardMaterial>(null)
-  useFrame(() => {
-    if (mat.current) mat.current.emissiveIntensity = 0.18 + Math.sin(performance.now() * 0.0015) * 0.07
+  const tex = useMemo(() => tiled('water', '#2a7d8c', size[0] / 4, size[2] / 4), [size])
+  useFrame((_, dt) => {
+    tex.map.offset.x += dt * 0.05
+    tex.map.offset.y -= dt * 0.03
   })
   return (
     <mesh position={pos} receiveShadow>
       <boxGeometry args={size} />
-      <meshStandardMaterial
-        ref={mat}
-        color="#2a7d8c"
-        emissive="#1d9e75"
-        emissiveIntensity={0.2}
-        transparent
-        opacity={0.55}
-        roughness={0.18}
-        metalness={0.1}
-        depthWrite={false}
-      />
+      <meshStandardMaterial map={tex.map} emissiveMap={tex.map} color="#bfeae6" emissive="#1d9e75" emissiveIntensity={0.5} transparent opacity={0.62} roughness={0.15} metalness={0.1} depthWrite={false} />
     </mesh>
   )
 }
 
-// Zone-wide rain. Purely atmospheric; recycled streaks falling through the atrium.
+// Zone-wide rain, atmospheric only.
 function Rain() {
   const group = useRef<THREE.Group>(null)
   const drops = useMemo(
     () =>
-      Array.from({ length: 120 }, () => ({
-        x: (Math.random() - 0.5) * 22,
-        y: Math.random() * 14,
-        z: 16 - Math.random() * 90,
+      Array.from({ length: 140 }, () => ({
+        x: (Math.random() - 0.5) * 26,
+        y: Math.random() * 16,
+        z: 16 - Math.random() * 100,
         len: 0.45 + Math.random() * 0.6,
-        spd: 9 + Math.random() * 7,
+        spd: 9 + Math.random() * 8,
       })),
     []
   )
@@ -107,7 +74,7 @@ function Rain() {
     if (!g) return
     g.children.forEach((c, i) => {
       c.position.y -= drops[i].spd * dt
-      if (c.position.y < -1) c.position.y = 14
+      if (c.position.y < -2) c.position.y = 16
     })
   })
   return (
@@ -122,104 +89,88 @@ function Rain() {
   )
 }
 
-// === The Glasshouse: zone 2 ===
-// Assumes everything Trend Mile taught (jump, dash, molt, gusts) and turns the
-// screw. The twist: the suit can't cross water at all. Y is up; a Slab at
-// pos.y -0.25 size.y 0.5 has its top at y = 0. Progress runs toward -z.
-//   spawn  a quick dash-jump recap over a dry gap
-//   CP1    the flooded nave: a 14 m channel only the bare can cross, on water-
-//          routes the suit can neither see nor stand on (inverts Trend Mile)
-//   CP2    re-suit and climb up onto the high glass roof (double-jump power)
-//   CP3    a SECOND water route, now elevated, where a fall costs much more
+// === The Glasshouse: the escalation obby ===
+// Assumes everything Trend Mile taught and combines it under rain. The twist
+// stands: the suit cannot cross water, so the only ways over are bare-only
+// water-routes you must reach by molting in mid-air. Y is up; tops at y = 0
+// unless noted. Multi-directional, climbs onto a high glass roof, goal offset.
+//   spawn  weaving hops + a 5.5 m dash recap
+//   CP1    launch suited, molt to BARE mid-air onto the flooded nave, then
+//          cross a rain GUST on the water-route before it forces a re-suit
+//   CP2    re-suit and climb +x up onto the glass roof
+//   CP3    a SECOND, elevated mid-air switch onto a roof water-route
+//   CP4    land on the high far bank and reach the goal
 
-const SLABS: { pos: V3; size: V3; color?: string }[] = [
-  // Entry plaza. Full-corridor width near spawn (matches the curbs).
-  { pos: [0, -0.25, 9], size: [24, 0.5, 14] },        // z 2..16, top 0
-  // Plaza B, across a 6 m dry gap (dash recap).
-  { pos: [0, -0.25, -8], size: [12, 0.5, 8] },        // z -12..-4, top 0
-  // Far bank, reached only on the bare-only water-routes across the nave.
-  { pos: [0, -0.25, -30], size: [12, 0.5, 8] },       // z -34..-26, top 0
-  // Gust ledge (a rain squall) off the side of the far bank.
-  { pos: [9, -0.25, -30], size: [4, 0.5, 4] },        // z -32..-28, top 0
-  // Climb up to the high glass roof (rise ~1.7 steps; bare can't make them).
-  { pos: [0, 1.45, -36], size: [10, 0.5, 4], color: '#cadfd6' },  // z -38..-34, top 1.7
-  { pos: [-2, 2.6, -40], size: [8, 0.5, 4], color: '#cadfd6' },   // z -42..-38, top 2.85
-  // Elevated walkway D, on the roof.
-  { pos: [0, 3.6, -46], size: [12, 0.5, 8], color: '#d6ece4' },   // z -50..-42, top 3.85
-  // Far elevated bank E (the goal terrace).
-  { pos: [0, 3.6, -67], size: [12, 0.5, 10], color: '#d6ece4' },  // z -72..-62, top 3.85
+const FLOORS: { pos: V3; size: V3; kind?: 'tile' | 'panel'; color?: string }[] = [
+  { pos: [0, -0.25, 10], size: [22, 0.5, 14], color: '#cfe3da' },     // PLAZA top0 (wide)
+  { pos: [-3, 0.5, -1], size: [5, 0.5, 4], color: '#bcdcd0' },        // G1 top0.75
+  { pos: [3, 0.5, -7], size: [5, 0.5, 4], color: '#bcdcd0' },         // G2 top0.75
+  { pos: [3, 0.5, -17], size: [6, 0.5, 5], color: '#c6e0d6' },        // G3 top0.75 (CP1, after 5.5 m gap)
+  { pos: [0, 0.5, -41], size: [10, 0.5, 6], color: '#cfe3da' },       // FB far bank top0.75 (CP2)
+  { pos: [6, 2.4, -42], size: [5, 0.5, 4], kind: 'panel', color: '#9fb8ad' }, // R1 step top2.65
+  { pos: [11, 4.3, -46], size: [5, 0.5, 4], kind: 'panel', color: '#9fb8ad' }, // R2 step top4.55
+  { pos: [6, 5.6, -52], size: [10, 0.5, 7], kind: 'panel', color: '#bcd6cc' },  // ROOF walkway top5.85 (CP3)
+  { pos: [5, 5.6, -75], size: [10, 0.5, 9], color: '#d6ece4' },       // GBANK goal terrace top5.85 (CP4)
 ]
 
-// Glass side walls: one run for the lower atrium, one for the high roof.
-const CURBS: { pos: V3; size: V3 }[] = [
-  { pos: [11.8, 1.5, -9], size: [0.4, 3, 52] },        // lower: z 17..-35
-  { pos: [-11.8, 1.5, -9], size: [0.4, 3, 52] },
-  { pos: [11.8, 5.35, -57], size: [0.4, 3, 32] },      // roof: z -41..-73
-  { pos: [-11.8, 5.35, -57], size: [0.4, 3, 32] },
-]
-
-// Bare-only water-routes. The lower nave (top 0, z -12..-26) and the elevated
-// roof channel (top 3.85, z -50..-62). Invisible and non-solid while suited.
 const STONES_LOW: V3[] = [
-  [0, -0.15, -13.0],
-  [0.7, -0.15, -14.4],
-  [-0.7, -0.15, -15.8],
-  [0.7, -0.15, -17.2],
-  [-0.7, -0.15, -18.6],
-  [0.7, -0.15, -20.0],
-  [-0.7, -0.15, -21.4],
-  [0.7, -0.15, -22.8],
-  [-0.7, -0.15, -24.2],
-  [0, -0.15, -25.6],
+  [3, 0.45, -24],   // W1 (reached by the mid-air switch, straight off G3)
+  [0, 0.45, -27],   // W2
+  [3, 0.45, -30],   // W3 (in the gust)
+  [0, 0.45, -33],   // W4 (in the gust)
+  [3, 0.45, -36],   // W5
 ]
 const STONES_HIGH: V3[] = [
-  [0, 3.7, -51.0],
-  [0.7, 3.7, -52.4],
-  [-0.7, 3.7, -53.8],
-  [0.7, 3.7, -55.2],
-  [-0.7, 3.7, -56.6],
-  [0.7, 3.7, -58.0],
-  [-0.7, 3.7, -59.4],
-  [0, 3.7, -60.8],
+  [6, 5.7, -60],    // EW1 (elevated mid-air switch, straight off the roof)
+  [2, 5.7, -63],    // EW2
+  [6, 5.7, -66],    // EW3
+  [5, 5.7, -69],    // EW4
 ]
 
-const GLASS: { pos: V3; size: V3 }[] = [
-  { pos: [11.9, 3, -6], size: [0.2, 6, 24] },
-  { pos: [-11.9, 3, -6], size: [0.2, 6, 24] },
-  { pos: [11.9, 6.4, -57], size: [0.2, 5, 32] },
-  { pos: [-11.9, 6.4, -57], size: [0.2, 5, 32] },
+const PANES: { pos: V3; size: V3 }[] = [
+  { pos: [11.4, 3, -6], size: [0.25, 6, 26] },
+  { pos: [-11.4, 3, -6], size: [0.25, 6, 26] },
+  { pos: [11.4, 6.6, -60], size: [0.25, 5, 30] },
+  { pos: [-1, 6.6, -60], size: [0.25, 5, 30] },
 ]
 
 const PLANTERS: V3[] = [
   [8, 0, 12],
   [-8, 0, 5],
-  [8, 0, -28],
-  [-8, 0, -32],
+  [-4, 0.75, -41],
+  [4, 0.75, -41],
+]
+
+const LAMPS: { pos: V3; color: string }[] = [
+  { pos: [3, 0.75, -17], color: '#a8e6cf' },
+  { pos: [0, 0.75, -41], color: '#eafff6' },
+  { pos: [6, 5.85, -52], color: '#a8e6cf' },
+  { pos: [5, 5.85, -75], color: '#eafff6' },
 ]
 
 const NPCS: { pos: V3; color: string; rot: number }[] = [
   { pos: [4, 0, 11], color: '#A8E6CF', rot: 2.7 },
   { pos: [-5, 0, 7], color: '#c2d9db', rot: -1.4 },
-  { pos: [-4, 0, -29], color: '#1d9e75', rot: 0.8 },
 ]
 
 const WATER: { pos: V3; size: V3 }[] = [
-  { pos: [0, -0.7, -19], size: [22, 0.2, 15] },   // the flooded nave
-  { pos: [0, -0.7, -2], size: [16, 0.2, 5] },     // under the dry-gap recap
-  { pos: [0, 3.15, -55.9], size: [22, 0.2, 13] }, // pooled on the high glass roof
+  { pos: [0, -0.7, -30], size: [22, 0.2, 18] }, // the flooded nave
+  { pos: [0, -0.7, -11], size: [16, 0.2, 8] },  // under the dry dash-gap
+  { pos: [3, 5.05, -64], size: [22, 0.2, 16] }, // pooled on the high glass roof
 ]
 
 const MOMENTS: V3[] = [
-  [5, 1, 7],          // plaza
-  [-5, 1, 3],         // plaza
-  [4, 1, -8],         // plaza B
-  [0.7, 1, -15.8],    // out on the nave water-route
-  [-0.7, 1, -21.4],   // further along the nave
-  [5, 1, -29],        // far bank
-  [9, 1, -30],        // on the gust ledge (risk/reward)
-  [0.7, 4.85, -53.8], // out on the elevated water-route
-  [-0.7, 4.85, -58.0],// further along the high route
-  [5, 4.85, -66],     // by the goal terrace
+  [4, 1.0, 8],      // plaza
+  [-4, 1.0, 4],     // plaza
+  [3, 1.75, -17],   // G3
+  [3, 1.6, -24],    // out on the nave water-route (bare)
+  [3, 1.6, -30],    // mid-gust on the route (risk)
+  [0, 1.75, -41],   // far bank
+  [11, 5.55, -46],  // up the climb (optional)
+  [6, 6.85, -60],   // elevated water-route (bare)
+  [2, 6.85, -63],   // elevated water-route
+  [5, 6.85, -69],   // elevated water-route
+  [5, 6.85, -75],   // by the goal
 ]
 
 export function Glasshouse() {
@@ -229,23 +180,23 @@ export function Glasshouse() {
 
   return (
     <group>
-      {SLABS.map((s, i) => (
-        <Slab key={`s${i}`} pos={s.pos} size={s.size} color={s.color} />
-      ))}
-      {CURBS.map((c, i) => (
-        <Slab key={`c${i}`} pos={c.pos} size={c.size} color="#9fc7bc" />
+      {FLOORS.map((f, i) => (
+        <Block key={`f${i}`} pos={f.pos} size={f.size} kind={f.kind ?? 'tile'} color={f.color} metalness={f.kind === 'panel' ? 0.35 : 0} roughness={f.kind === 'panel' ? 0.6 : 0.9} />
       ))}
       {STONES_LOW.map((p, i) => (
-        <HiddenPlatform key={`lo${i}`} position={p} size={[2.4, 0.3, 1.8]} />
+        <HiddenPlatform key={`lo${i}`} position={p} size={[2.8, 0.3, 2.2]} />
       ))}
       {STONES_HIGH.map((p, i) => (
-        <HiddenPlatform key={`hi${i}`} position={p} size={[2.4, 0.3, 1.8]} />
+        <HiddenPlatform key={`hi${i}`} position={p} size={[2.8, 0.3, 2.2]} />
       ))}
-      {GLASS.map((g, i) => (
-        <GlassPanel key={`g${i}`} pos={g.pos} size={g.size} />
+      {PANES.map((p, i) => (
+        <Pane key={`pa${i}`} pos={p.pos} size={p.size} />
       ))}
       {PLANTERS.map((p, i) => (
         <Planter key={`pl${i}`} pos={p} />
+      ))}
+      {LAMPS.map((l, i) => (
+        <Lamp key={`l${i}`} pos={l.pos} color={l.color} />
       ))}
       {NPCS.map((n, i) => (
         <NPC key={`n${i}`} position={n.pos} color={n.color} rot={n.rot} />
@@ -258,8 +209,8 @@ export function Glasshouse() {
       ))}
 
       <Rain />
-      <GustZone position={[9, 1.3, -30]} size={[4, 2.6, 4]} />
-      <Goal position={[0, 4.0, -67]} zoneId="glasshouse" nextId="underhum" />
+      <GustZone position={[1.5, 1.3, -31.5]} size={[5, 2.6, 5]} />
+      <Goal position={[5, 6.1, -75]} zoneId="glasshouse" nextId="underhum" />
     </group>
   )
 }
