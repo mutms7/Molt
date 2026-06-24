@@ -109,7 +109,6 @@ const MOMENTS: V3[] = [
   [2.5, 2.5, -37],   // further along that bare run
   [-6, 6.3, -46],    // up the tower
   [-6, 10.1, -50],   // higher up the tower
-  [4, 10.6, -54],    // by the goal
 ]
 const MIN_MOMENTS = 4
 

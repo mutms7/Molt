@@ -173,7 +173,6 @@ const MOMENTS: V3[] = [
   [0, 5.85, -48],   // up on the roof
   [0, 5.6, -65.1],  // on the expert dash+double+molt plank
   [3, 5.6, -68],    // further along the expert route
-  [0, 5.75, -76],   // by the goal
 ]
 const MIN_MOMENTS = 5
 
