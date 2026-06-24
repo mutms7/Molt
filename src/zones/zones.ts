@@ -43,6 +43,6 @@ export const zoneById = (id: string | null) => ZONES.find((z) => z.id === id)
 // seeded into the store on startZone/replay; the zone's own useEffect drives
 // the live HUD. Keep in sync with the MOMENTS array in each zone component.
 export const MOMENT_COUNT: Record<string, number> = {
-  'trend-mile': 11,
+  'trend-mile': 10,
   'glasshouse': 11,
 }

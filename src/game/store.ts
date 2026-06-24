@@ -12,8 +12,10 @@ interface State {
   suited: boolean
   suitProgress: number // 0 = bare visual, 1 = suited visual
   suitDirection: -1 | 0 | 1
+  finishing: boolean // playing the goal flourish, input frozen, before 'complete'
   moments: number
   totalMoments: number
+  minMoments: number // the minimum you must collect before the goal opens
   exposure: number // 0..1, only meaningful when bare in a gust
   unlocked: string[]
   completed: string[]
@@ -26,6 +28,7 @@ interface State {
   toggleSuit: () => void
   setSuit: (v: boolean) => void
   setSuitProgress: (v: number) => void
+  setFinishing: (v: boolean) => void
   addMoment: () => void
   setExposure: (v: number) => void
   completeZone: (id: string, nextId?: string) => void
@@ -42,8 +45,10 @@ export const useGame = create<State>()(
       suited: true,
       suitProgress: 1,
       suitDirection: 0,
+      finishing: false,
       moments: 0,
       totalMoments: 0,
+      minMoments: 0,
       exposure: 1,
       unlocked: ['trend-mile'],
       completed: [],
@@ -58,8 +63,10 @@ export const useGame = create<State>()(
           suited: true,
           suitProgress: 1,
           suitDirection: 0,
+          finishing: false,
           moments: 0,
           totalMoments: total,
+          minMoments: 0,
           exposure: 1,
         })),
       restartZone: () => {
@@ -73,8 +80,10 @@ export const useGame = create<State>()(
           suited: true,
           suitProgress: 1,
           suitDirection: 0,
+          finishing: false,
           moments: 0,
           totalMoments,
+          minMoments: get().minMoments,
           exposure: 1,
         }))
       },
@@ -94,6 +103,7 @@ export const useGame = create<State>()(
         audio.molt(dir > 0)
       },
       setSuit: (v) => set({ suited: v, suitProgress: v ? 1 : 0, suitDirection: 0 }),
+      setFinishing: (v) => set({ finishing: v }),
       setSuitProgress: (v) => {
         const p = Math.max(0, Math.min(1, v))
         if (p <= 0) {
@@ -110,10 +120,11 @@ export const useGame = create<State>()(
         set((s) => ({
           screen: 'complete',
           paused: false,
+          finishing: false,
           completed: [...new Set([...s.completed, id])],
           unlocked: nextId ? [...new Set([...s.unlocked, nextId])] : s.unlocked,
         })),
-      toMenu: () => set({ screen: 'select', zoneId: null, paused: false }),
+      toMenu: () => set({ screen: 'select', zoneId: null, paused: false, finishing: false }),
     }),
     {
       name: 'molt-progress',

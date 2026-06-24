@@ -8,6 +8,7 @@ export function HUD() {
   const suitDirection = useGame((s) => s.suitDirection)
   const moments = useGame((s) => s.moments)
   const total = useGame((s) => s.totalMoments)
+  const min = useGame((s) => s.minMoments)
   const exposure = useGame((s) => s.exposure)
   const setPaused = useGame((s) => s.setPaused)
   const [locked, setLocked] = useState(false)
@@ -34,7 +35,17 @@ export function HUD() {
         </div>
         <div className="moments">
           <span className="star">*</span>
-          {moments} <span style={{ opacity: 0.6 }}>/ {total} moments</span>
+          {min > 0 ? (
+            <>
+              {moments} <span style={{ opacity: 0.6 }}>/ {min} needed</span>
+              <span style={{ opacity: 0.45, marginLeft: '0.5ch' }}>({total} here)</span>
+              {moments >= min && <span style={{ color: '#a8e6cf', marginLeft: '0.5ch' }}>✓ way open</span>}
+            </>
+          ) : (
+            <>
+              {moments} <span style={{ opacity: 0.6 }}>/ {total} moments</span>
+            </>
+          )}
         </div>
         {exposure < 0.999 && (
           <div className="exposure">

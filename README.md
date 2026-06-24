@@ -38,8 +38,9 @@ npm run preview
 | Restart zone | `R` |
 | Back to the map | `M`, or from the pause menu |
 
-The intro and this controls list show on the title screen and from the pause menu (the
-"Controls" button). The game is keyboard + mouse; no gamepad support yet.
+The title screen opens on the story; this controls list is one click away there (the
+"Controls" toggle) and always in the pause menu. The game is keyboard + mouse; no gamepad
+support yet.
 
 ## The core mechanic: the Shell
 
@@ -90,8 +91,9 @@ plays.
 
 ## Secondary mechanics
 
-- **Moments** — glowing collectibles only visible (and collectible) while bare. Slowing down
-  to notice is rewarded.
+- **Moments** — glowing collectibles only visible (and collectible) while bare. Each zone has
+  a minimum (shown on the HUD) you must gather before the goal opens, and most sit off the
+  path, so noticing and detouring is rewarded.
 - **Hidden platforms** — stepping stones you can only see, and only stand on, while bare.
 - **Gusts** — being bare in a gust drains *exposure*; empty it and you're forced back into
   the suit (a gentle reset, never a death).
@@ -105,8 +107,8 @@ plays.
 
 | Zone | Twist | Status |
 |---|---|---|
-| The Trend Mile | a checkpointed obby that teaches one trick at a time: weaving hops, a dash gap, a double-jump scaffold, a mid-air molt onto a hidden plank, a gust, and a spiralling climb to the goal | **playable** |
-| The Glasshouse | a harder obby in the rain: the suit can't cross water, so you molt in mid-air onto bare-only water-routes, twice, the second time up on the high glass roof | **playable** |
+| The Trend Mile | the tutorial obby: teaches the molt-switch (suited reach vs bare-only planks) and the double-jump, ending with a mid-air molt and a turning climb to a high, offset goal | **playable** |
+| The Glasshouse | the challenge obby in the rain: introduces the dash and stacks combos, a 9 m dash gap, bare-only water-routes, a timed-molt plank stack, and an expert dash + double-jump + molt leap | **playable** |
 | The Underhum | trade your suit-light for the glow only stillness shows | planned |
 | The Gallery of Faces | wear the right face to pass, then take it off | planned |
 | The Open Field | no suit to help you, just the air | planned |

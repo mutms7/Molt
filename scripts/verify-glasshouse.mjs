@@ -1,7 +1,10 @@
 import puppeteer from 'puppeteer'
 
-// Smoke test for The Glasshouse (zone 2) plus a check of its core twist:
-// the water-routes across the flooded nave are solid ONLY while bare.
+// Framerate-independent checks for The Glasshouse obby: a nave water-route plank
+// is solid only while bare, the goal is gated on the moment minimum, and once it
+// is met the goal completes. Also saves before/after screenshots. The dash /
+// double-jump / mid-air-molt combos are within the documented budget and are not
+// replayed here (headless renders the textured scene too slowly for that).
 const URL = 'http://localhost:5173/'
 const browser = await puppeteer.launch({
   headless: 'new',
@@ -13,87 +16,67 @@ const errors = []
 page.on('pageerror', (e) => errors.push('PAGEERROR: ' + e.message))
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()) })
 
-// Unlock the glasshouse before the app boots (it normally unlocks by finishing Trend Mile).
 await page.evaluateOnNewDocument(() => {
   localStorage.setItem('molt-progress', JSON.stringify({
-    state: { unlocked: ['trend-mile', 'glasshouse'], completed: ['trend-mile'] },
-    version: 0,
+    state: { unlocked: ['trend-mile', 'glasshouse'], completed: ['trend-mile'] }, version: 0,
   }))
 })
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
-const pos = () => page.evaluate(() => {
-  const p = globalThis.__moltPos
-  return p ? { x: p.x, y: p.y, z: p.z } : null
-})
-const teleport = (x, y, z) => page.evaluate(([tx, ty, tz]) => globalThis.__moltDebug.teleport(tx, ty, tz), [x, y, z])
+const pos = () => page.evaluate(() => { const p = globalThis.__moltPos; return { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2) } })
+const tp = (x, y, z) => page.evaluate(([a, b, c]) => globalThis.__moltDebug.teleport(a, b, c), [x, y, z])
 const setSuit = (v) => page.evaluate((b) => globalThis.__moltDebug.setSuit(b), v)
-async function clickText(t) {
-  await page.evaluate((tt) => {
-    const el = [...document.querySelectorAll('button')].find((b) => (b.textContent || '').toLowerCase().includes(tt.toLowerCase()))
-    if (!el) throw new Error('no button ' + tt); el.click()
-  }, t)
-}
+const addMoment = () => page.evaluate(() => globalThis.__moltDebug.addMoment())
+const complete = () => page.$eval('.card h2', (e) => e.textContent.trim()).catch(() => '')
 const hud = () => page.$eval('.state-pill', (e) => e.textContent.trim()).catch(() => '')
-async function waitForHud(text, timeout = 8000) {
-  const end = Date.now() + timeout
-  while (Date.now() < end) {
-    if ((await hud()).toLowerCase().includes(text.toLowerCase())) return
-    await wait(120)
-  }
-  throw new Error('HUD did not show: ' + text)
+async function clickText(t) {
+  await page.evaluate((tt) => { const el = [...document.querySelectorAll('button')].find((b) => (b.textContent || '').toLowerCase().includes(tt.toLowerCase())); if (!el) throw new Error('no button ' + tt); el.click() }, t)
 }
 async function settle(frames = 55) {
-  // Headless clamps the sim dt and runs at a low frame rate, so falls advance
-  // slowly in wall-clock time. Wait generously, then report where we end up.
-  let last = await pos()
-  for (let i = 0; i < frames; i++) { await wait(120); last = await pos() }
-  return last
+  let p = await pos()
+  for (let i = 0; i < frames; i++) { await wait(130); p = await pos() }
+  return p
 }
+const results = []
+const check = (name, ok, detail) => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}  ${detail}`) }
 
 try {
   await page.goto(URL, { waitUntil: 'networkidle2', timeout: 30000 })
   await wait(700)
-  await clickText('Begin'); await wait(400)
-  await clickText('Glasshouse'); await wait(3500)
-
+  await clickText('begin'); await wait(400)
+  await clickText('glasshouse'); await wait(5000)
   const haveCanvas = !!(await page.$('canvas'))
-  console.log('CANVAS present :', haveCanvas)
-  console.log('HUD (suited)   :', await hud())
+  check('GH renders', haveCanvas, `canvas=${haveCanvas}, hud="${await hud()}"`)
   await page.screenshot({ path: 'shot-glasshouse-suited.png' })
-
   await page.click('canvas').catch(() => {})
 
-  // --- twist check: a water-route stone is solid bare, not solid suited ---
-  const stone = [3, 1.2, -24.0] // W1, a HiddenPlatform on the nave (clear of the gust)
-
-  // (1) Suited: stand on the stone position -> no collider, so fall away/respawn.
+  // A nave water-route plank (W2, top y 0.6 at z -21, clear of the gust) is bare-only.
   await setSuit(true)
-  await teleport(stone[0], stone[1], stone[2])
-  const suitedRest = await settle()
-  // Dropped through the plank top (0.6), or the kill-plane respawned us to CP1.
-  const suitedFellThrough = suitedRest.y < 0.4 || suitedRest.z > -22
-  console.log('suited on stone:', JSON.stringify(suitedRest), suitedFellThrough ? '(fell through / respawned)' : '(DID NOT fall - BAD)')
+  await tp(-3, 1.6, -21)
+  const sFall = await settle()
+  check('GH water-route not solid while suited', sFall.z > -18, JSON.stringify(sFall))
 
-  // (2) Bare: same spot -> the water-route is now solid, so we hold our footing.
   await setSuit(false)
-  await waitForHud('Bare')
+  await tp(-3, 1.6, -21)
+  const bStand = await settle()
   await page.screenshot({ path: 'shot-glasshouse-bare.png' })
-  await teleport(stone[0], stone[1], stone[2])
-  const bareRest = await settle()
-  const bareStands = bareRest.y > 1.0 && bareRest.z < -20 // still up on the stone, didn't fall
-  console.log('bare on stone  :', JSON.stringify(bareRest), bareStands ? '(stands on water-route)' : '(fell - BAD)')
+  check('GH water-route solid while bare', bStand.z < -18 && bStand.y > 1.0, JSON.stringify(bStand))
 
-  // --- reaching the goal (on the high far bank) completes the zone ---
-  await teleport(5, 6.7, -75)
-  await wait(2600)
-  const completed = await page.$eval('.card h2', (e) => e.textContent.trim()).catch(() => '')
-  console.log('goal reached   :', completed ? `complete screen: "${completed}"` : '(no complete screen - BAD)')
+  // Goal gated under the minimum (moments 0).
+  await tp(0, 6, -76)
+  await wait(5000)
+  check('GH goal gated under the minimum', !/stepped out/i.test(await complete()), `"${await complete()}"`)
 
-  console.log('console errors :', errors.length ? errors.join(' | ') : '(none)')
+  // Meet the minimum, then the goal completes after its flourish.
+  for (let i = 0; i < 6; i++) await addMoment()
+  await tp(0, 6, -76)
+  let done = ''
+  for (let i = 0; i < 90 && !/stepped out/i.test(done); i++) { await wait(500); done = await complete() }
+  check('GH goal completes once minimum met', /stepped out/i.test(done), `"${done}"`)
 
-  const ok = haveCanvas && suitedFellThrough && bareStands && /stepped out/i.test(completed) && errors.length === 0
-  console.log(ok ? '\nPASS: Glasshouse renders, bare-only water-routes work, goal completes.' : '\nFAIL: check results above.')
+  console.log('\nconsole errors:', errors.length ? errors.join(' | ') : '(none)')
+  const ok = results.every(Boolean) && errors.length === 0
+  console.log(ok ? '\nPASS: Glasshouse twist, moment-gate and goal all work.' : '\nFAIL: see above.')
   await browser.close()
   process.exit(ok ? 0 : 1)
 } catch (e) {

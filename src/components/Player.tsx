@@ -10,23 +10,26 @@ import {
 import * as THREE from 'three'
 import { keys, edges, look } from '../game/input'
 import { useGame } from '../game/store'
-import { playerPos, checkpoint, debugTeleport } from '../game/fx'
+import { playerPos, checkpoint, debugTeleport, checkpointFx } from '../game/fx'
+import { audio } from '../audio/audio'
 
 // Tuned for a crisp platformer: fairly strong gravity (little float),
-// snappy jumps, instant horizontal response.
-const SUIT = { speed: 9, jump: 15, maxJumps: 2 }
-const BARE = { speed: 5.5, jump: 12.5, maxJumps: 1 }
-const GRAVITY = -52
+// snappy jumps, instant horizontal response. Gravity is gentle and the jumps
+// are tall so there is real airtime to molt mid-jump; the morph is quick so
+// switching state in the air feels dexterous rather than fiddly.
+const SUIT = { speed: 9, jump: 16, maxJumps: 2 }
+const BARE = { speed: 6, jump: 14, maxJumps: 1 }
+const GRAVITY = -36
 const DASH_SPEED = 24
 const DASH_TIME = 0.2
 const DASH_CD = 0.55
-const COYOTE = 0.1
+const COYOTE = 0.12
 const GROUND_STICK = -4 // gentle downward press so you hug the ground / step down
 const CAM_DIST = 6.4
 const CAP_HALF = 0.5
 const CAP_RADIUS = 0.4
 const LAND_TIME = 0.18
-const SUIT_TRANSITION_SPEED = 2.4
+const SUIT_TRANSITION_SPEED = 5.0 // full molt in ~0.2 s, so you can switch in the air
 
 function dampAngle(current: number, target: number, lambda: number, dt: number) {
   const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current))
@@ -204,6 +207,7 @@ export function Player({
   useEffect(() => {
     checkpoint.set(spawn[0], spawn[1], spawn[2])
     s.current.cpIndex = 0
+    checkpointFx.armed = 0
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -225,12 +229,12 @@ export function Player({
     const dt = Math.min(dtRaw, 0.033)
     let game = useGame.getState()
     if (game.paused) return
-    if (game.screen === 'play' && game.suitDirection !== 0) {
+    if (game.screen === 'play' && !game.finishing && game.suitDirection !== 0) {
       game.setSuitProgress(game.suitProgress + game.suitDirection * SUIT_TRANSITION_SPEED * dt)
       game = useGame.getState()
     }
-    const acceptingInput = game.screen === 'play'
-    const complete = game.screen === 'complete'
+    const acceptingInput = game.screen === 'play' && !game.finishing
+    const complete = game.screen === 'complete' || game.finishing
     const suited = game.suited
     const suitProgress = game.suitProgress
     const P = suited ? SUIT : BARE
@@ -342,10 +346,15 @@ export function Player({
     let nz = cur.z
 
     // --- per-zone checkpoints arm in order; gentle respawn on a fall ---
+    const prevCp = st.cpIndex
     while (st.cpIndex < checkpoints.length && checkpoints[st.cpIndex].when({ x: nx, y: ny, z: nz })) {
       const at = checkpoints[st.cpIndex].at
       checkpoint.set(at[0], at[1], at[2])
       st.cpIndex++
+    }
+    if (st.cpIndex !== prevCp) {
+      checkpointFx.armed = st.cpIndex // markers watch this to fire their pop
+      audio.chime()
     }
     if (ny < killY) {
       nx = checkpoint.x

@@ -9,8 +9,8 @@ import { HiddenPlatform } from '../components/HiddenPlatform'
 import { GustZone } from '../components/GustZone'
 import { NPC } from '../components/NPC'
 import { Goal } from '../components/Goal'
+import { Checkpoint } from '../components/Checkpoint'
 
-// A planter with textured soil and foliage.
 function Planter({ pos }: { pos: V3 }) {
   const soil = useMemo(() => tiled('soil', '#4a3a2c', 1, 1), [])
   return (
@@ -31,16 +31,10 @@ function Planter({ pos }: { pos: V3 }) {
         <sphereGeometry args={[0.34, 10, 10]} />
         <meshStandardMaterial color="#0f6e56" roughness={0.85} />
       </mesh>
-      <mesh castShadow position={[-0.3, 1.15, -0.1]}>
-        <sphereGeometry args={[0.3, 10, 10]} />
-        <meshStandardMaterial color="#27b487" roughness={0.85} />
-      </mesh>
     </group>
   )
 }
 
-// Flooded floor: textured caustics, no collider, so you fall through unless you
-// are bare on the hidden water-routes laid just above it.
 function Water({ pos, size }: { pos: V3; size: V3 }) {
   const tex = useMemo(() => tiled('water', '#2a7d8c', size[0] / 4, size[2] / 4), [size])
   useFrame((_, dt) => {
@@ -55,7 +49,6 @@ function Water({ pos, size }: { pos: V3; size: V3 }) {
   )
 }
 
-// Zone-wide rain, atmospheric only.
 function Rain() {
   const group = useRef<THREE.Group>(null)
   const drops = useMemo(
@@ -63,7 +56,7 @@ function Rain() {
       Array.from({ length: 140 }, () => ({
         x: (Math.random() - 0.5) * 26,
         y: Math.random() * 16,
-        z: 16 - Math.random() * 100,
+        z: 16 - Math.random() * 104,
         len: 0.45 + Math.random() * 0.6,
         spd: 9 + Math.random() * 8,
       })),
@@ -89,93 +82,104 @@ function Rain() {
   )
 }
 
-// === The Glasshouse: the escalation obby ===
-// Assumes everything Trend Mile taught and combines it under rain. The twist
-// stands: the suit cannot cross water, so the only ways over are bare-only
-// water-routes you must reach by molting in mid-air. Y is up; tops at y = 0
-// unless noted. Multi-directional, climbs onto a high glass roof, goal offset.
-//   spawn  weaving hops + a 5.5 m dash recap
-//   CP1    launch suited, molt to BARE mid-air onto the flooded nave, then
-//          cross a rain GUST on the water-route before it forces a re-suit
-//   CP2    re-suit and climb +x up onto the glass roof
-//   CP3    a SECOND, elevated mid-air switch onto a roof water-route
-//   CP4    land on the high far bank and reach the goal
+// === The Glasshouse: the challenge obby ===
+// Introduces the DASH and stacks the mechanics. The twist stands: the suit
+// cannot cross water, so every water-route is a bare-only plank you reach by
+// molting in the air. Y is up; tops at y = 0 unless noted. Budget: dash-jump
+// flat ~11, dash+double ~14, suited single up ~3.5, bare flat ~4.6.
+//   spawn  a 9 m gap nothing but a DASH clears (teach dash)
+//   CP1    molt to bare in the air onto the flooded nave, cross a rain GUST
+//   CP2    re-suit and climb up onto the glass roof (a side stack of planks
+//          hides a moment for whoever can time molts up it)
+//   CP3    the expert leap: dash + double-jump + molt, all in one jump
+//   CP4    the high far bank and the goal
 
 const FLOORS: { pos: V3; size: V3; kind?: 'tile' | 'panel'; color?: string }[] = [
-  { pos: [0, -0.25, 10], size: [22, 0.5, 14], color: '#cfe3da' },     // PLAZA top0 (wide)
-  { pos: [-3, 0.5, -1], size: [5, 0.5, 4], color: '#bcdcd0' },        // G1 top0.75
-  { pos: [3, 0.5, -7], size: [5, 0.5, 4], color: '#bcdcd0' },         // G2 top0.75
-  { pos: [3, 0.5, -17], size: [6, 0.5, 5], color: '#c6e0d6' },        // G3 top0.75 (CP1, after 5.5 m gap)
-  { pos: [0, 0.5, -41], size: [10, 0.5, 6], color: '#cfe3da' },       // FB far bank top0.75 (CP2)
-  { pos: [6, 2.4, -42], size: [5, 0.5, 4], kind: 'panel', color: '#9fb8ad' }, // R1 step top2.65
-  { pos: [11, 4.3, -46], size: [5, 0.5, 4], kind: 'panel', color: '#9fb8ad' }, // R2 step top4.55
-  { pos: [6, 5.6, -52], size: [10, 0.5, 7], kind: 'panel', color: '#bcd6cc' },  // ROOF walkway top5.85 (CP3)
-  { pos: [5, 5.6, -75], size: [10, 0.5, 9], color: '#d6ece4' },       // GBANK goal terrace top5.85 (CP4)
+  { pos: [0, -0.25, 9], size: [22, 0.5, 14], color: '#cfe3da' },      // PLAZA top0
+  { pos: [0, 0.5, -10], size: [8, 0.5, 6], color: '#c6e0d6' },        // D1 top0.75 (after the dash gap)
+  { pos: [0, 0.5, -35], size: [10, 0.5, 6], color: '#cfe3da' },       // FB far bank top0.75 (after the nave)
+  { pos: [0, 4.0, -41], size: [6, 0.5, 4], kind: 'panel', color: '#9fb8ad' },  // R1 step top4.25 (forces re-suit)
+  { pos: [0, 5.6, -48], size: [10, 0.5, 7], kind: 'panel', color: '#bcd6cc' }, // ROOF top5.85
+  { pos: [0, 4.5, -76], size: [10, 0.5, 9], color: '#d6ece4' },       // GBANK goal terrace top4.75
 ]
 
 const STONES_LOW: V3[] = [
-  [3, 0.45, -24],   // W1 (reached by the mid-air switch, straight off G3)
-  [0, 0.45, -27],   // W2
-  [3, 0.45, -30],   // W3 (in the gust)
-  [0, 0.45, -33],   // W4 (in the gust)
-  [3, 0.45, -36],   // W5
+  [0, 0.45, -18.1], // W1 (mid-air molt entry)
+  [-3, 0.45, -21],  // W2
+  [0, 0.45, -24],   // W3 (gust)
+  [3, 0.45, -27],   // W4 (gust)
+  [0, 0.45, -30],   // W5
 ]
-const STONES_HIGH: V3[] = [
-  [6, 5.7, -60],    // EW1 (elevated mid-air switch, straight off the roof)
-  [2, 5.7, -63],    // EW2
-  [6, 5.7, -66],    // EW3
-  [5, 5.7, -69],    // EW4
+// A side stack: climbed by molting suit-to-jump, bare-to-land, step after step.
+const STONES_STACK: V3[] = [
+  [9, 1.85, -35], // SK1 top2.0
+  [9, 4.85, -37], // SK2 top5.0 (up 3.0, suited single only, but solid only bare)
+  [9, 7.85, -35], // SK3 top8.0 (a moment waits on top)
+]
+// The expert route, reached by the dash + double-jump + molt leap.
+const STONES_EX: V3[] = [
+  [0, 4.45, -65.1], // EX1
+  [3, 4.45, -68],   // EX2
+  [0, 4.45, -71],   // EX3
+]
+
+const CHECKPOINTS: { index: number; pos: V3 }[] = [
+  { index: 0, pos: [3, 0.75, -10] }, // D1
+  { index: 1, pos: [3.5, 0.75, -35] }, // FB
+  { index: 2, pos: [3.5, 5.85, -48] }, // ROOF
+  { index: 3, pos: [3.5, 4.75, -76] }, // GBANK
 ]
 
 const PANES: { pos: V3; size: V3 }[] = [
   { pos: [11.4, 3, -6], size: [0.25, 6, 26] },
   { pos: [-11.4, 3, -6], size: [0.25, 6, 26] },
-  { pos: [11.4, 6.6, -60], size: [0.25, 5, 30] },
-  { pos: [-1, 6.6, -60], size: [0.25, 5, 30] },
+  { pos: [11.4, 6.6, -55], size: [0.25, 6, 34] },
+  { pos: [-11.4, 6.6, -55], size: [0.25, 6, 34] },
 ]
 
 const PLANTERS: V3[] = [
   [8, 0, 12],
   [-8, 0, 5],
-  [-4, 0.75, -41],
-  [4, 0.75, -41],
+  [-4, 0.75, -35],
+  [4, 0.75, -35],
 ]
 
 const LAMPS: { pos: V3; color: string }[] = [
-  { pos: [3, 0.75, -17], color: '#a8e6cf' },
-  { pos: [0, 0.75, -41], color: '#eafff6' },
-  { pos: [6, 5.85, -52], color: '#a8e6cf' },
-  { pos: [5, 5.85, -75], color: '#eafff6' },
+  { pos: [0, 0.75, -10], color: '#a8e6cf' },
+  { pos: [-3, 0.75, -35], color: '#eafff6' },
+  { pos: [0, 5.85, -48], color: '#a8e6cf' },
+  { pos: [0, 4.75, -76], color: '#eafff6' },
 ]
 
 const NPCS: { pos: V3; color: string; rot: number }[] = [
   { pos: [4, 0, 11], color: '#A8E6CF', rot: 2.7 },
-  { pos: [-5, 0, 7], color: '#c2d9db', rot: -1.4 },
+  { pos: [-5, 0, 6], color: '#c2d9db', rot: -1.4 },
 ]
 
 const WATER: { pos: V3; size: V3 }[] = [
-  { pos: [0, -0.7, -30], size: [22, 0.2, 18] }, // the flooded nave
-  { pos: [0, -0.7, -11], size: [16, 0.2, 8] },  // under the dry dash-gap
-  { pos: [3, 5.05, -64], size: [22, 0.2, 16] }, // pooled on the high glass roof
+  { pos: [0, -0.7, -23], size: [22, 0.2, 18] }, // the flooded nave
+  { pos: [0, -0.7, -3], size: [18, 0.2, 11] },  // under the dash gap
+  { pos: [0, 4.2, -67], size: [22, 0.2, 14] },  // pooled on the high glass roof
 ]
 
 const MOMENTS: V3[] = [
-  [4, 1.0, 8],      // plaza
-  [-4, 1.0, 4],     // plaza
-  [3, 1.75, -17],   // G3
-  [3, 1.6, -24],    // out on the nave water-route (bare)
-  [3, 1.6, -30],    // mid-gust on the route (risk)
-  [0, 1.75, -41],   // far bank
-  [11, 5.55, -46],  // up the climb (optional)
-  [6, 6.85, -60],   // elevated water-route (bare)
-  [2, 6.85, -63],   // elevated water-route
-  [5, 6.85, -69],   // elevated water-route
-  [5, 6.85, -75],   // by the goal
+  [5, 1.0, 10],     // plaza edge
+  [-6, 1.0, 4],     // plaza edge
+  [3, 1.75, -10],   // D1 edge
+  [-3, 1.6, -21],   // out on the nave (bare)
+  [3, 1.6, -27],    // mid-gust on the route (risk)
+  [9, 8.85, -35],   // top of the timed-molt stack (hard detour)
+  [4, 1.75, -35],   // far bank edge
+  [0, 5.85, -48],   // up on the roof
+  [0, 5.6, -65.1],  // on the expert dash+double+molt plank
+  [3, 5.6, -68],    // further along the expert route
+  [0, 5.75, -76],   // by the goal
 ]
+const MIN_MOMENTS = 5
 
 export function Glasshouse() {
   useEffect(() => {
-    useGame.setState({ totalMoments: MOMENTS.length, moments: 0 })
+    useGame.setState({ totalMoments: MOMENTS.length, minMoments: MIN_MOMENTS, moments: 0 })
   }, [])
 
   return (
@@ -186,8 +190,14 @@ export function Glasshouse() {
       {STONES_LOW.map((p, i) => (
         <HiddenPlatform key={`lo${i}`} position={p} size={[2.8, 0.3, 2.2]} />
       ))}
-      {STONES_HIGH.map((p, i) => (
-        <HiddenPlatform key={`hi${i}`} position={p} size={[2.8, 0.3, 2.2]} />
+      {STONES_STACK.map((p, i) => (
+        <HiddenPlatform key={`sk${i}`} position={p} size={[2.8, 0.3, 2.2]} />
+      ))}
+      {STONES_EX.map((p, i) => (
+        <HiddenPlatform key={`ex${i}`} position={p} size={[2.8, 0.3, 2.2]} />
+      ))}
+      {CHECKPOINTS.map((c) => (
+        <Checkpoint key={`cp${c.index}`} index={c.index} position={c.pos} />
       ))}
       {PANES.map((p, i) => (
         <Pane key={`pa${i}`} pos={p.pos} size={p.size} />
@@ -209,8 +219,8 @@ export function Glasshouse() {
       ))}
 
       <Rain />
-      <GustZone position={[1.5, 1.3, -31.5]} size={[5, 2.6, 5]} />
-      <Goal position={[5, 6.1, -75]} zoneId="glasshouse" nextId="underhum" />
+      <GustZone position={[1.5, 1.3, -25.5]} size={[5, 2.6, 5]} />
+      <Goal position={[0, 5.0, -76]} zoneId="glasshouse" nextId="underhum" />
     </group>
   )
 }

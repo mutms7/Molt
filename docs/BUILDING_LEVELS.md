@@ -96,25 +96,29 @@ two fields per zone; no Player edits needed.
 
 ## Movement budget (design solvable jumps with these)
 
-From `Player.tsx` constants: `GRAVITY = -52`, suited `{speed 9, jump 15, double-jump}`,
-bare `{speed 5.5, jump 12.5, single}`, dash `24 u/s for 0.2s` (suited only), coyote `0.1s`.
+From `Player.tsx` constants: `GRAVITY = -36` (gentle, floaty), suited `{speed 9, jump 16,
+double-jump}`, bare `{speed 6, jump 14, single}`, dash `24 u/s for 0.2s` (suited only),
+coyote `0.12s`, and the molt morph is fast (`SUIT_TRANSITION_SPEED 5` ≈ 0.2 s to commit).
+The big airtime is deliberate: a suited jump lasts ~0.9 s, enough to molt once or twice in
+the air.
 
-Practical reach (use as ceilings, leave margin):
+Practical reach (analytic maxima; **design to ~75 % and leave margin**):
 
 | | up (height) | flat gap |
 |---|---|---|
-| Bare (single jump) | ~1.3 m | ~2.5 m |
-| Suited (single jump) | ~2.0 m | ~5 m |
-| Suited (double jump) | ~3.5 m | wide |
-| Suited dash-jump | ~2 m | ~6–7 m |
+| Bare (single jump) | ~2.7 m | ~4.6 m |
+| Suited (single jump) | ~3.5 m | ~8 m |
+| Suited (double jump) | ~7 m | ~13 m |
+| Suited dash-jump | ~3.5 m | ~11 m |
+| Suited dash + double-jump | — | ~14 m |
 
-So: a ~6 m gap is crossable suited (dash-jump) but not bare (the Trend Mile dash gap,
-z -8..-14, is exactly this, and forces the suit). A gap wider than a dash-jump (~8 m+) has
-*no* suited answer, so a bare-only `HiddenPlatform` walkway is the only way over (the Trend
-Mile stone crossing at z -23..-31, and both of the Glasshouse water-routes). Bridge such a
-gap with overlapping stones (spacing < depth) so the bare player walks rather than
-pixel-jumps. Steps ~0.85 m tall are climbable by both; a ~1.7 m step forces the suit (bare
-tops out near 1.3 m). Lips ≤ 0.3 m are auto-stepped (no jump needed).
+So: to force the **double-jump**, use an up-reach above ~3.6 m (single tops out there). To
+force the **suit**, make a gap wider than bare can clear (~4.6 m) or a step taller than bare
+can reach (~2.7 m). To force the **dash**, use a flat gap wider than a suited single (~8 m).
+The hardest beats stack these (the Glasshouse "expert leap" is ~12.5 m, needing dash + double
++ a molt). A gap with no suited answer at all is bridged only by a bare-only `HiddenPlatform`
+walkway; overlap the planks (spacing < depth) so the bare player walks rather than
+pixel-jumps. Lips ≤ 0.3 m are auto-stepped (no jump needed).
 
 ## The two-state design language
 
@@ -147,28 +151,37 @@ at the end of a straight hallway. Each segment introduces or escalates one trick
 with a checkpoint, so a fall costs one segment, never the whole run. The two playable zones
 are the template:
 
-- **The Trend Mile** (the tutorial): weaving hops (jump) → **CP1** → a 5.5 m gap (dash or
-  double-jump) → **CP2/3** a +x scaffold reached by a double-jump, then a drop and a -x gap
-  → **CP4** launch suited and *molt to bare in mid-air* to land on a hidden plank → **CP5**
-  a gust ledge, then a spiralling tower climb (double-jumps) to the goal.
-- **The Glasshouse** (escalation): a dash recap → **CP1** a mid-air molt onto the flooded
-  nave, crossing a rain **gust** on the water-route before it re-suits you → **CP2** climb
-  +x onto the glass roof → **CP3** a *second*, elevated mid-air molt onto a roof water-route
-  → **CP4** the high far bank and the goal.
+**Abilities are taught in order across the zones**: zone 1 teaches only the molt-switch and
+the double-jump (no dash needed anywhere); zone 2 introduces the dash and stacks combos.
 
-Design jumps to the movement budget above and **leave margin** (the shipped gaps sit well
-under the max). Variety is the point: mix small precise hops, dash gaps, double-jump
-up-and-overs, drops, and direction changes (`+x`, `-x`, `-z`, up). The signature advanced
-beat is the **mid-air molt**: a gap only a *suited* launch can clear, landing on a
-bare-only `HiddenPlatform`, so you must start the morph in the air to land solid (the morph
-is ~0.4 s; a suited jump gives enough airtime).
+- **The Trend Mile** (the tutorial): a tall leap a single jump can't make → the **double-
+  jump** up onto A1 → **CP1** → molt to **bare** for the descending planks → **CP2** → molt to
+  **suit** for a 6 m gap bare can't cross → **CP3** → launch suited and *molt to bare in the
+  air* to land on a hidden plank → **CP4** → a turning tower of double-jumps to the offset,
+  high goal.
+- **The Glasshouse** (the challenge): a 9 m **dash** gap → **CP1** → a mid-air molt onto the
+  flooded nave, across a rain **gust** → **CP2** → re-suit and climb to the glass roof (a side
+  stack of planks hides a moment for whoever can time molts up it) → **CP3** → the expert
+  leap (**dash + double-jump + molt** in one jump) → **CP4** → the high far bank and the goal.
+
+Design jumps to the movement budget above and **leave margin**. Variety is the point: mix
+small precise hops, dash gaps, double-jump up-and-overs, drops, and direction changes
+(`+x`, `-x`, `-z`, up and down). The signature advanced beat is the **mid-air molt**: a gap
+only a *suited* launch can clear, landing on a bare-only `HiddenPlatform`, so you must start
+the morph in the air to land solid (the morph is fast now and the airtime is generous).
+
+**Moments** have a per-zone minimum (`minMoments`, set in the zone's `useEffect` and shown on
+the HUD); the `Goal` will not open until you have collected it, so place the easy ones on the
+path and the rest as real detours that meet the minimum only if you work for them.
 
 Checkpoints arm in order and never un-arm (monotonic), so list them front-to-back and put
 each `at` on a **solid** platform that opens the next segment (never on a bare-only plank, or
 a re-suit could respawn you mid-air). A predicate can be on any axis (`p.z < -42`, `p.x > 6`,
-`p.y > 5`); just make sure the path satisfies them in order. Set `killY` just under the
-lowest floor (Trend Mile `-7`, Glasshouse `-3`). Keep the spawn area full-corridor width
-(x ±12) with a side curb so `verify-wall.mjs` can still press a wall near the start.
+`p.y > 5`); just make sure the path satisfies them in order. Drop a `<Checkpoint index pos>`
+marker (it pops and lights when armed) at each `at` (use the floor-top y, the post builds
+upward). Set `killY` just under the lowest floor (both zones use `-4`/`-3`). Keep the spawn
+area full-corridor width (x ±12) with a tall side curb (≥ 6 m, the jump is floaty now) so
+`verify-wall.mjs` can still press a wall near the start.
 
 ## Entity API reference
 
@@ -184,7 +197,8 @@ fixed RigidBody you add).
 | `HiddenPlatform` | `position, size?=[2,0.3,1.5]` | Bare-only: visible + solid only while bare; fades/de-collides when suited (textured caustic shimmer). The mid-air-molt target. |
 | `Collectible` | `position` | A "moment". Visible + collectible only while bare; auto-collects within ~1.35 m; increments `moments`. |
 | `GustZone` | `position, size` | Box hazard. While bare inside, drains `exposure`; at 0 forces re-suit. No collider. |
-| `Goal` | `position, zoneId, nextId?` | Completes the zone (triggers `completeZone`) and unlocks `nextId`. One per zone. |
+| `Goal` | `position, zoneId, nextId?` | The end. Stays locked (dim, amber) until `moments ≥ minMoments`, then opens (bright, green); reaching it then plays a ~2 s flourish (`finishing` freezes input + a victory pose) before `completeZone`. One per zone. |
+| `Checkpoint` | `index, position` | Visible beacon at a checkpoint `at` (floor-top). Watches `checkpointFx.armed`; pops + lights the frame it arms. No collider. |
 | `NPC` | `position, color, rot` | Decorative figure (crowd flavor). No collider. |
 | `Pillar` / `Planter` / `Water` / `Rain` (local helpers) | — | Decorative; copy from a zone file. `Water` is a textured, non-solid surface; the kill-plane catches a fall through it. |
 
@@ -198,8 +212,8 @@ them beyond the `CFG` palette.
 - `npm run dev`, click into the zone from the level-select.
 - In dev, the console exposes debug hooks (from `src/game/fx.ts`):
   `window.__moltPos` (live player Vector3), `window.__moltDebug.teleport(x, y, z)` to jump to
-  a spot, and `window.__moltDebug.setSuit(bool)` to snap the suit state with no morph. The
-  verify scripts use these.
+  a spot, `window.__moltDebug.setSuit(bool)` to snap the suit state with no morph, and
+  `window.__moltDebug.addMoment()` to satisfy the moment minimum. The verify scripts use these.
 - Headless `node scripts/verify.mjs` catches console/runtime errors and saves before/after
   (suited vs bare) screenshots. `verify-reach.mjs` / `verify-glasshouse.mjs` check the
   per-zone twist (hidden plank solid only while bare), checkpoint respawn, and the goal.

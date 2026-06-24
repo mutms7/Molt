@@ -1,5 +1,10 @@
 # Molt, development round 3 brief
 
+> **STATUS: implemented.** Everything below shipped (movement retune, ability-intro order,
+> min-moments gate + HUD, checkpoint and end-of-level animations, the trapped-moment fix,
+> both map reworks, and the lore title intro). Kept as the record of intent and the
+> challenge-idea bank. README and BUILDING_LEVELS reflect the shipped state.
+
 Read this AFTER [../README.md](../README.md) and [BUILDING_LEVELS.md](BUILDING_LEVELS.md).
 Those two explain the game, the zone wiring, the entity API, and the movement budget. This
 file is the task list and design spec for the current round of work. Do everything here,

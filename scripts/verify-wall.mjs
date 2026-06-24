@@ -35,8 +35,10 @@ async function jumpAndMeasure(holdKey) {
   let peak = base
   let minY = base
   let maxX = (await pos()).x
-  for (let i = 0; i < 26; i++) {
-    await wait(45)
+  // The jump is floaty (~0.9 s airtime) and the headless renderer is slow, so
+  // sample over a long wall-window to actually reach the apex for both jumps.
+  for (let i = 0; i < 60; i++) {
+    await wait(120)
     const p = await pos()
     peak = Math.max(peak, p.y)
     minY = Math.min(minY, p.y)
@@ -50,7 +52,7 @@ try {
   await page.goto(URL, { waitUntil: 'networkidle2', timeout: 30000 })
   await wait(700)
   await clickText('Begin'); await wait(400)
-  await clickText('Trend Mile'); await wait(3000) // settle on the ground
+  await clickText('Trend Mile'); await wait(6000) // settle on the ground (heavy scene loads slowly)
   await page.click('canvas').catch(() => {})
 
   // 1) Free jump apex (no wall).
