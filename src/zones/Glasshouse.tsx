@@ -83,20 +83,21 @@ function Rain() {
 }
 
 // === The Glasshouse: the challenge obby ===
-// Introduces the DASH and stacks the mechanics. The twist stands: the suit
-// cannot cross water, so every water-route is a bare-only plank you reach by
-// molting in the air. Y is up; tops at y = 0 unless noted. Budget: dash-jump
-// flat ~11, dash+double ~14, suited single up ~3.5, bare flat ~4.6.
-//   spawn  a 9 m gap nothing but a DASH clears (teach dash)
+// No new verb here (the dash waits for zone 3); this zone just stacks zone 1's
+// molt-switch and double-jump into harder shapes, in the rain. The twist stands:
+// the suit cannot cross water, so every water-route is a bare-only plank you
+// reach by molting in the air. Y is up; tops at y = 0 unless noted. Budget:
+// double-jump flat ~13, suited single ~8, suited single up ~3.5, bare flat ~4.6.
+//   spawn  a 9 m gap a running double-jump clears (no dash needed)
 //   CP1    molt to bare in the air onto the flooded nave, cross a rain GUST
 //   CP2    re-suit and climb up onto the glass roof (a side stack of planks
 //          hides a moment for whoever can time molts up it)
-//   CP3    the expert leap: dash + double-jump + molt, all in one jump
+//   CP3    the expert leap: a long double-jump + a mid-air molt
 //   CP4    the high far bank and the goal
 
 const FLOORS: { pos: V3; size: V3; kind?: 'tile' | 'panel'; color?: string }[] = [
   { pos: [0, -0.25, 9], size: [22, 0.5, 14], color: '#cfe3da' },      // PLAZA top0
-  { pos: [0, 0.5, -10], size: [8, 0.5, 6], color: '#c6e0d6' },        // D1 top0.75 (after the dash gap)
+  { pos: [0, 0.5, -10], size: [8, 0.5, 6], color: '#c6e0d6' },        // D1 top0.75 (after the big double-jump gap)
   { pos: [0, 0.5, -35], size: [10, 0.5, 6], color: '#cfe3da' },       // FB far bank top0.75 (after the nave)
   { pos: [0, 4.0, -41], size: [6, 0.5, 4], kind: 'panel', color: '#9fb8ad' },  // R1 step top4.25 (forces re-suit)
   { pos: [0, 5.6, -48], size: [10, 0.5, 7], kind: 'panel', color: '#bcd6cc' }, // ROOF top5.85
@@ -116,11 +117,11 @@ const STONES_STACK: V3[] = [
   [9, 4.85, -37], // SK2 top5.0 (up 3.0, suited single only, but solid only bare)
   [9, 7.85, -35], // SK3 top8.0 (a moment waits on top)
 ]
-// The expert route, reached by the dash + double-jump + molt leap.
+// The expert route, reached by a long double-jump + a mid-air molt (no dash).
 const STONES_EX: V3[] = [
-  [0, 4.45, -65.1], // EX1
-  [3, 4.45, -68],   // EX2
-  [0, 4.45, -71],   // EX3
+  [0, 4.45, -63], // EX1 (~10.5 m double-jump from the roof, molt to land)
+  [3, 4.45, -68], // EX2
+  [0, 4.45, -71], // EX3
 ]
 
 const CHECKPOINTS: { index: number; pos: V3 }[] = [
@@ -171,7 +172,7 @@ const MOMENTS: V3[] = [
   [9, 8.85, -35],   // top of the timed-molt stack (hard detour)
   [4, 1.75, -35],   // far bank edge
   [0, 5.85, -48],   // up on the roof
-  [0, 5.6, -65.1],  // on the expert dash+double+molt plank
+  [0, 5.6, -63],    // on the expert double-jump+molt plank
   [3, 5.6, -68],    // further along the expert route
 ]
 const MIN_MOMENTS = 5

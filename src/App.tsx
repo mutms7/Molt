@@ -4,6 +4,7 @@ import { Game } from './components/Game'
 import { TitleScreen } from './ui/TitleScreen'
 import { LevelSelect } from './ui/LevelSelect'
 import { HUD } from './ui/HUD'
+import { SuitGuide } from './ui/SuitGuide'
 import { CompleteScreen } from './ui/CompleteScreen'
 import { PauseMenu } from './ui/PauseMenu'
 
@@ -20,6 +21,7 @@ export default function App() {
       {screen === 'title' && <TitleScreen />}
       {screen === 'select' && <LevelSelect />}
       {screen === 'play' && <HUD />}
+      {screen === 'play' && <SuitGuide />}
       <PauseLayer />
       {screen === 'complete' && <CompleteScreen />}
     </>

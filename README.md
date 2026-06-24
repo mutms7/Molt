@@ -95,6 +95,9 @@ plays.
   a minimum (shown on the HUD) you must gather before the goal opens, and most sit off the
   path, so noticing and detouring is rewarded.
 - **Hidden platforms** — stepping stones you can only see, and only stand on, while bare.
+- **CARAPACE Mk.III** — the suit narrates the first zones as a deadpan instruction manual,
+  with lines scripted to where you are and what you're doing (it teaches one verb at a time
+  and is faintly proud of you).
 - **Gusts** — being bare in a gust drains *exposure*; empty it and you're forced back into
   the suit (a gentle reset, never a death).
 - **The color flood** — a custom postprocessing grade (desaturate + bloom) sells the suited
@@ -108,7 +111,7 @@ plays.
 | Zone | Twist | Status |
 |---|---|---|
 | The Trend Mile | the tutorial obby: teaches the molt-switch (suited reach vs bare-only planks) and the double-jump, ending with a mid-air molt and a turning climb to a high, offset goal | **playable** |
-| The Glasshouse | the challenge obby in the rain: introduces the dash and stacks combos, a 9 m dash gap, bare-only water-routes, a timed-molt plank stack, and an expert dash + double-jump + molt leap | **playable** |
+| The Glasshouse | the challenge obby in the rain: stacks the switch and double-jump into harder shapes, a 9 m double-jump gap, bare-only water-routes, a timed-molt plank stack, and an expert double-jump + mid-air molt leap (the dash waits for zone 3) | **playable** |
 | The Underhum | trade your suit-light for the glow only stillness shows | planned |
 | The Gallery of Faces | wear the right face to pass, then take it off | planned |
 | The Open Field | no suit to help you, just the air | planned |

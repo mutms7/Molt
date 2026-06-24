@@ -54,7 +54,8 @@ try {
   await setSuit(true)
   await tp(-3, 1.6, -21)
   const sFall = await settle()
-  check('GH water-route not solid while suited', sFall.z > -18, JSON.stringify(sFall))
+  // Fell through the (non-solid) plank: dropped well below it, or respawned to CP1.
+  check('GH water-route not solid while suited', sFall.y < 0 || sFall.z > -18, JSON.stringify(sFall))
 
   await setSuit(false)
   await tp(-3, 1.6, -21)

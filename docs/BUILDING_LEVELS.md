@@ -151,18 +151,21 @@ at the end of a straight hallway. Each segment introduces or escalates one trick
 with a checkpoint, so a fall costs one segment, never the whole run. The two playable zones
 are the template:
 
-**Abilities are taught in order across the zones**: zone 1 teaches only the molt-switch and
-the double-jump (no dash needed anywhere); zone 2 introduces the dash and stacks combos.
+**Abilities are taught in order across the zones**: zone 1 teaches the molt-switch and the
+double-jump, zone 2 stacks those two into harder shapes, and the **dash is reserved for
+zone 3** (nothing in zone 1 or 2 requires it). The suit (`CARAPACE Mk.III`,
+`src/ui/SuitGuide.tsx`) narrates these first zones in robotic-manual voice, scripted to
+player position / state; add a zone's lines to `SCRIPTS` there to extend the tutorial.
 
 - **The Trend Mile** (the tutorial): a tall leap a single jump can't make → the **double-
   jump** up onto A1 → **CP1** → molt to **bare** for the descending planks → **CP2** → molt to
   **suit** for a 6 m gap bare can't cross → **CP3** → launch suited and *molt to bare in the
   air* to land on a hidden plank → **CP4** → a turning tower of double-jumps to the offset,
   high goal.
-- **The Glasshouse** (the challenge): a 9 m **dash** gap → **CP1** → a mid-air molt onto the
-  flooded nave, across a rain **gust** → **CP2** → re-suit and climb to the glass roof (a side
-  stack of planks hides a moment for whoever can time molts up it) → **CP3** → the expert
-  leap (**dash + double-jump + molt** in one jump) → **CP4** → the high far bank and the goal.
+- **The Glasshouse** (the challenge, no dash): a 9 m **double-jump** gap → **CP1** → a mid-air
+  molt onto the flooded nave, across a rain **gust** → **CP2** → re-suit and climb to the glass
+  roof (a side stack of planks hides a moment for whoever can time molts up it) → **CP3** →
+  the expert leap (a long **double-jump + a mid-air molt**) → **CP4** → the far bank and goal.
 
 Design jumps to the movement budget above and **leave margin**. Variety is the point: mix
 small precise hops, dash gaps, double-jump up-and-overs, drops, and direction changes
